@@ -2,29 +2,32 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 
 class Setting extends Model
 {
-    use HasFactory;
+    protected $fillable = ['key', 'value'];
 
-    protected $fillable = [
-        'key',
-        'value',
-        'group',
-    ];
-
-    public static function get(string $key, $default = null)
+    public static function get($key, $default = null)
     {
-        return static::where('key', $key)->value('value') ?? $default;
-    }
+        // Cek cache dulu
+        $cachedSetting = Cache::get('setting_' . $key);
 
-    public static function set(string $key, $value, string $group = 'general')
-    {
-        return static::updateOrCreate(
-            ['key' => $key],
-            ['value' => $value, 'group' => $group]
-        );
+        // Kalau cache-nya ada dan bentuknya objek, langsung balikin
+        if ($cachedSetting instanceof self) {
+            return $cachedSetting->value;
+        }
+
+        // Kalau gak ada di cache, ambil dari database
+        $setting = self::where('key', $key)->first();
+
+        if ($setting) {
+            // Simpan ke cache
+            Cache::put('setting_' . $key, $setting, 3600); // Simpan 1 jam
+            return $setting->value;
+        }
+
+        return $default;
     }
 }

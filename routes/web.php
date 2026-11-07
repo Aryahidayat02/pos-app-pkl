@@ -41,10 +41,20 @@ Route::middleware('auth')->group(function () {
     Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
     Route::post('/settings', [SettingController::class, 'update'])->name('settings.update');
 
-    // MODUL KASIR & RIWAYAT TRANSAKSI
-    Route::get('/kasir', [SaleController::class, 'create'])->name('kasir');
+    // ==========================================
+    // MODUL KASIR & RIWAYAT TRANSAKSI (DIPERBAIKI)
+    // ==========================================
+    
+    // Halaman Kasir (URL: /kasir, Nama Route: sales.create)
+    Route::get('/kasir', [SaleController::class, 'create'])->name('sales.create');
+    
+    // Simpan Transaksi (Nama Route: sales.store)
     Route::post('/kasir', [SaleController::class, 'store'])->name('sales.store');
+    
+    // Riwayat Transaksi
     Route::get('/sales', [SaleController::class, 'index'])->name('sales.index');
+    
+    // Detail Transaksi & Struk
     Route::get('/sales/{sale}', [SaleController::class, 'show'])->name('sales.show');
     
     // FITUR BONUS: VOID (PEMBATALAN) TRANSAKSI

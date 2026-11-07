@@ -2,29 +2,42 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Product;
 use App\Models\Sale;
+use App\Models\Product;
 
 class DashboardController extends Controller
 {
     public function __invoke()
     {
         $user = auth()->user();
+        
+        // PAKSA AMBIL TANGGAL HARI INI DI JAKARTA
+        $today = \Carbon\Carbon::now('Asia/Jakarta')->format('Y-m-d'); 
 
-        $salesQuery = Sale::where('status', 'paid');
+        $query = Sale::where('status', 'paid');
         if ($user->role === 'kasir') {
-            $salesQuery->where('user_id', $user->id);
+            $query->where('user_id', $user->id);
         }
 
-        $todaySales = (clone $salesQuery)->whereDate('sale_date', today())->sum('total');
-        $todayCount = (clone $salesQuery)->whereDate('sale_date', today())->count();
-        $lowStock = Product::where('is_active', true)->whereColumn('stock', '<=', 'min_stock')->count();
-        $activeProducts = Product::where('is_active', true)->count();
-        $recentSales = (clone $salesQuery)->with('items')->latest()->limit(5)->get();
+        $todaySalesTotal = (clone $query)
+            ->whereRaw("DATE(sale_date) = ?", [$today])
+            ->sum('total');
+            
+        $todaySalesCount = (clone $query)
+            ->whereRaw("DATE(sale_date) = ?", [$today])
+            ->count();
 
-        // Ini akan memanggil file resources/views/dashboard.blade.php
+        $activeProductsCount = Product::where('is_active', 1)->count();
+        $lowStockCount = Product::whereRaw('stock <= min_stock')->count();
+
+        $recentSales = (clone $query)->latest('sale_date')->take(5)->get();
+
         return view('dashboard', compact(
-            'todaySales', 'todayCount', 'lowStock', 'activeProducts', 'recentSales'
+            'todaySalesTotal', 
+            'todaySalesCount', 
+            'lowStockCount', 
+            'activeProductsCount', 
+            'recentSales'
         ));
     }
 }

@@ -1,123 +1,172 @@
-@extends('layouts.app')
-@section('title', 'Struk Transaksi')
-
-@push('styles')
-<style>
-    .struk-container {
-        max-width: 350px;
-        margin: 0 auto;
-        background: #fff;
-        padding: 20px;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        font-family: 'Courier New', Courier, monospace;
-        color: #000;
-    }
-    .struk-header { text-align: center; margin-bottom: 10px; }
-    .struk-header h4 { margin: 0; font-weight: bold; font-size: 1.1rem; }
-    .struk-header p { margin: 0; font-size: 0.8rem; }
-    .struk-divider { border-top: 1px dashed #000; margin: 10px 0; }
-    .struk-item { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px; }
-    .struk-item-name { font-weight: bold; margin-bottom: 2px; }
-    .struk-total { font-size: 1rem; font-weight: bold; }
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Struk - {{ $sale->invoice_number }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     
-    @media print {
-        body * { visibility: hidden; }
-        .struk-container, .struk-container * { visibility: visible; }
-        .struk-container { position: absolute; left: 0; top: 0; border: none; }
-        .no-print { display: none !important; }
-    }
-</style>
-@endpush
+    <style>
+        body {
+            background-color: #f1f5f9;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 20px;
+        }
+        .receipt-container {
+            background: #fff;
+            width: 100%;
+            max-width: 350px;
+            margin: 0 auto;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .receipt-header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 10px;
+        }
+        .receipt-header h4 {
+            margin: 0;
+            font-weight: 800;
+            font-size: 1.2rem;
+        }
+        .receipt-header p {
+            margin: 2px 0;
+            font-size: 0.8rem;
+            color: #444;
+        }
+        .receipt-info {
+            font-size: 0.8rem;
+            margin-bottom: 15px;
+        }
+        .receipt-table {
+            width: 100%;
+            font-size: 0.8rem;
+            margin-bottom: 15px;
+        }
+        .receipt-table th {
+            border-bottom: 1px dashed #000;
+            padding: 5px 0;
+            text-align: left;
+        }
+        .receipt-table td {
+            padding: 5px 0;
+            vertical-align: top;
+        }
+        .receipt-footer {
+            border-top: 1px dashed #000;
+            padding-top: 10px;
+            font-size: 0.8rem;
+        }
+        .receipt-footer .row-data {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+        .receipt-footer .total-row {
+            font-weight: 800;
+            font-size: 1rem;
+            margin: 10px 0;
+            border-top: 1px dashed #000;
+            border-bottom: 1px dashed #000;
+            padding: 8px 0;
+        }
+        .thank-you {
+            text-align: center;
+            font-size: 0.75rem;
+            margin-top: 20px;
+            color: #555;
+        }
+        @media print {
+            body { background: none; padding: 0; margin: 0; }
+            .receipt-container { box-shadow: none; max-width: 100%; padding: 0; margin: 0; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body>
 
-@section('content')
-    <div class="d-flex justify-content-between align-items-center mb-4 no-print">
-        <a href="{{ route('sales.index') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i>Kembali ke Riwayat
-        </a>
+    <div class="receipt-container">
         
-        <div class="d-flex gap-2">
-            @if(auth()->user()->role === 'admin' && $sale->status === 'paid')
-            <!-- Tombol Void (Pembatalan) -->
-            <form action="{{ route('sales.void', $sale) }}" method="POST" onsubmit="return confirm('Yakin ingin membatalkan transaksi ini? Stok akan dikembalikan.')">
-                @csrf
-                <input type="hidden" name="void_reason" value="Dibatalkan oleh admin">
-                <button type="submit" class="btn btn-danger">
-                    <i class="bi bi-x-circle me-1"></i>Batalkan (Void)
-                </button>
-            </form>
-            @endif
-
-            <button onclick="window.print()" class="btn btn-primary">
-                <i class="bi bi-printer me-1"></i>Cetak Struk
+        <div class="d-flex justify-content-between mb-3 no-print">
+            <a href="{{ route('sales.index') }}" class="btn btn-sm btn-secondary">
+                <i class="bi bi-arrow-left"></i> Kembali
+            </a>
+            <button onclick="window.print()" class="btn btn-sm btn-primary">
+                <i class="bi bi-printer"></i> Cetak Struk
             </button>
         </div>
-    </div>
 
-    <div class="struk-container shadow-sm">
-        @if($sale->status === 'void')
-            <div class="alert alert-danger text-center fw-bold mb-3" style="font-size: 1rem;">
-                TRANSAKSI DIBATALKAN (VOID)
-            </div>
-        @endif
-
-        <div class="struk-header">
+        <!-- HEADER STRUK DINAMIS DARI DATABASE -->
+        <div class="receipt-header">
             <h4>{{ \App\Models\Setting::get('store_name', 'POS APP') }}</h4>
-            <p>{{ \App\Models\Setting::get('store_address', 'Alamat Toko') }}</p>
-            <p>Telp: {{ \App\Models\Setting::get('store_phone', '-') }}</p>
+            <p>{{ \App\Models\Setting::get('store_address', 'Jl. Contoh Alamat No. 123') }}</p>
+            <p>Telp: {{ \App\Models\Setting::get('store_phone', '0812-3456-7890') }}</p>
         </div>
 
-        <div class="struk-divider"></div>
-
-        <div style="font-size: 0.8rem; margin-bottom: 8px;">
-            <div>No. Invoice : {{ $sale->invoice_number }}</div>
-            <div>Tanggal&nbsp;&nbsp;&nbsp;&nbsp; : {{ $sale->sale_date->format('d/m/Y H:i') }}</div>
-            <div>Kasir&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; : {{ $sale->user->name }}</div>
-            <div>Pelanggan : {{ $sale->customer->name ?? 'Pelanggan Umum' }}</div>
+        <div class="receipt-info">
+            <div>No: {{ $sale->invoice_number }}</div>
+            <div>Tgl: {{ \Carbon\Carbon::parse($sale->sale_date)->format('d/m/Y H:i') }}</div>
+            <div>Kasir: {{ $sale->user->name ?? '-' }}</div>
+            <div>Plgn: {{ $sale->customer->name ?? 'Umum' }}</div>
         </div>
 
-        <div class="struk-divider"></div>
+        <table class="receipt-table">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th class="text-center">Qty</th>
+                    <th class="text-end">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($sale->items as $item)
+                    <tr>
+                        <td>
+                            {{ $item->product_name }}<br>
+                            <small style="color: #666;">@ Rp {{ number_format($item->price, 0, ',', '.') }}</small>
+                        </td>
+                        <td class="text-center">{{ $item->quantity }}</td>
+                        <td class="text-end">{{ number_format($item->subtotal, 0, ',', '.') }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
 
-        @foreach($sale->items as $item)
-            <div class="struk-item-name">{{ $item->product_name }}</div>
-            <div class="struk-item">
-                <span>{{ $item->quantity }} x {{ number_format($item->price, 0, ',', '.') }}</span>
-                <span>{{ number_format($item->subtotal, 0, ',', '.') }}</span>
+        <div class="receipt-footer">
+            <div class="row-data">
+                <span>Subtotal:</span>
+                <span>Rp {{ number_format($sale->subtotal, 0, ',', '.') }}</span>
             </div>
-        @endforeach
+            <div class="row-data">
+                <span>Diskon:</span>
+                <span>Rp {{ number_format($sale->discount, 0, ',', '.') }}</span>
+            </div>
+            
+            <div class="row-data total-row">
+                <span>TOTAL:</span>
+                <span>Rp {{ number_format($sale->total, 0, ',', '.') }}</span>
+            </div>
 
-        <div class="struk-divider"></div>
-
-        <div class="struk-item">
-            <span>Subtotal</span>
-            <span>{{ number_format($sale->subtotal, 0, ',', '.') }}</span>
-        </div>
-        @if($sale->discount > 0)
-        <div class="struk-item">
-            <span>Diskon</span>
-            <span>-{{ number_format($sale->discount, 0, ',', '.') }}</span>
-        </div>
-        @endif
-        <div class="struk-item struk-total mt-1">
-            <span>TOTAL</span>
-            <span>{{ number_format($sale->total, 0, ',', '.') }}</span>
-        </div>
-
-        <div class="struk-divider"></div>
-
-        <div class="struk-item">
-            <span>Bayar ({{ strtoupper($sale->payment_method) }})</span>
-            <span>{{ number_format($sale->paid_amount, 0, ',', '.') }}</span>
-        </div>
-        <div class="struk-item">
-            <span>Kembalian</span>
-            <span>{{ number_format($sale->change_amount, 0, ',', '.') }}</span>
+            <div class="row-data">
+                <span>Bayar ({{ strtoupper($sale->payment_method) }}):</span>
+                <span>Rp {{ number_format($sale->paid_amount, 0, ',', '.') }}</span>
+            </div>
+            <div class="row-data">
+                <span>Kembalian:</span>
+                <span>Rp {{ number_format($sale->change_amount, 0, ',', '.') }}</span>
+            </div>
         </div>
 
-        <div class="struk-divider"></div>
-
-        <div class="struk-header mt-3">
-            <p style="font-size: 0.75rem;">{{ \App\Models\Setting::get('receipt_footer', 'Terima kasih atas kunjungan Anda') }}</p>
+        <div class="thank-you">
+            <p>{{ \App\Models\Setting::get('receipt_footer', 'Terima kasih telah berbelanja!') }}</p>
+            <p>Barang yang sudah dibeli tidak dapat ditukar</p>
         </div>
+
     </div>
-@endsection
+
+</body>
+</html>
