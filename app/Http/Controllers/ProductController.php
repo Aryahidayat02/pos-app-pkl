@@ -2,46 +2,38 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Product;
 use App\Models\Category;
+use App\Models\Product;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class ProductController extends Controller implements HasMiddleware
 {
     public static function middleware(): array
     {
-        return [
-            new Middleware('role:admin', except: ['index', 'show']),
-        ];
+        // Hanya admin yang bisa create, edit, hapus. Kasir cuma bisa lihat (index, show)
+        return [new Middleware('role:admin', except: ['index', 'show'])];
     }
 
     public function index(Request $request)
     {
-        $query = Product::with('category');
+        $products = Product::with('category')
+            ->when($request->filled('search'), function ($q) use ($request) {
+                $s = $request->search;
+                $q->where(function ($x) use ($s) {
+                    $x->where('name', 'like', "%$s%")
+                      ->orWhere('sku', 'like', "%$s%");
+                });
+            })
+            ->when($request->filled('category_id'), fn($q) => $q->where('category_id', $request->category_id))
+            ->when($request->filled('status'), fn($q) => $q->where('is_active', $request->status === '1'))
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
 
-        // Pencarian
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('sku', 'like', "%{$search}%");
-            });
-        }
-
-        // Filter Kategori
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->category_id);
-        }
-
-        // Filter Status
-        if ($request->filled('status')) {
-            $query->where('is_active', $request->status);
-        }
-
-        $products = $query->latest()->paginate(10)->withQueryString();
         $categories = Category::orderBy('name')->get();
 
         return view('products.index', compact('products', 'categories'));
@@ -49,85 +41,109 @@ class ProductController extends Controller implements HasMiddleware
 
     public function create()
     {
-        $categories = Category::orderBy('name')->get();
-        return view('products.form', compact('categories'));
+        // INI KUNCI UNTUK MEMPERBAIKI ERROR "Undefined variable $product"
+        return view('products.form', [
+            'product' => new Product(),
+            'categories' => Category::orderBy('name')->get(),
+        ]);
     }
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'category_id' => 'required|exists:categories,id',
-            'sku' => 'required|string|max:50|alpha_dash|unique:products,sku',
-            'name' => 'required|string|max:150',
-            'unit' => 'required|string|max:20',
-            'purchase_price' => 'required|numeric|min:0',
-            'selling_price' => 'required|numeric|min:0|gte:purchase_price',
-            'stock' => 'required|integer|min:0',
-            'min_stock' => 'required|integer|min:0',
-            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
-        ]);
+        $data = $this->validateData($request);
+        $data['is_active'] = $request->boolean('is_active');
 
         if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('products', 'public');
+            $data['image'] = $request->file('image')->store('products', 'public');
         }
 
-        $validated['is_active'] = $request->boolean('is_active');
+        Product::create($data);
 
-        Product::create($validated);
         return redirect()->route('products.index')->with('success', 'Produk berhasil ditambahkan.');
     }
 
     public function show(Product $product)
     {
+        $product->load('category');
         return view('products.show', compact('product'));
     }
 
     public function edit(Product $product)
     {
-        $categories = Category::orderBy('name')->get();
-        return view('products.form', compact('product', 'categories'));
+        return view('products.form', [
+            'product' => $product,
+            'categories' => Category::orderBy('name')->get(),
+        ]);
     }
 
     public function update(Request $request, Product $product)
     {
-        $validated = $request->validate([
-            'category_id' => 'required|exists:categories,id',
-            'sku' => 'required|string|max:50|alpha_dash|unique:products,sku,' . $product->id,
-            'name' => 'required|string|max:150',
-            'unit' => 'required|string|max:20',
-            'purchase_price' => 'required|numeric|min:0',
-            'selling_price' => 'required|numeric|min:0|gte:purchase_price',
-            'min_stock' => 'required|integer|min:0',
-            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
-        ]);
+        $data = $this->validateData($request, $product->id);
+        $data['is_active'] = $request->boolean('is_active');
 
         if ($request->hasFile('image')) {
-            // Hapus gambar lama kalau ada
-            if ($product->image && !filter_var($product->image, FILTER_VALIDATE_URL)) {
+            // Hapus gambar lama jika ada
+            if ($product->image) {
                 Storage::disk('public')->delete($product->image);
             }
-            $validated['image'] = $request->file('image')->store('products', 'public');
+            $data['image'] = $request->file('image')->store('products', 'public');
         }
 
-        // INI KUNCINYA BIAR BISA NONAKTIF
-        $validated['is_active'] = $request->boolean('is_active');
+        $product->update($data);
 
-        $product->update($validated);
         return redirect()->route('products.index')->with('success', 'Produk berhasil diperbarui.');
     }
 
     public function destroy(Product $product)
     {
-        // Cek apakah produk punya riwayat transaksi
-        if ($product->saleItems()->count() > 0 || $product->purchaseItems()->count() > 0) {
-            return redirect()->route('products.index')->with('error', 'Produk tidak bisa dihapus karena sudah memiliki riwayat transaksi. Silakan nonaktifkan saja.');
+        // Cegah hapus jika produk sudah pernah ada di transaksi
+        if ($product->saleItems()->exists() || $product->purchaseItems()->exists()) {
+            return back()->with('error', 'Produk sudah punya riwayat transaksi. Nonaktifkan saja, jangan dihapus.');
         }
 
-        if ($product->image && !filter_var($product->image, FILTER_VALIDATE_URL)) {
+        if ($product->image) {
             Storage::disk('public')->delete($product->image);
         }
 
         $product->delete();
-        return redirect()->route('products.index')->with('success', 'Produk berhasil dihapus.');
+
+        return back()->with('success', 'Produk berhasil dihapus.');
+    }
+
+    private function validateData(Request $request, ?int $ignoreId = null): array
+    {
+        $rules = [
+            'category_id' => ['required', 'exists:categories,id'],
+            'sku' => ['required', 'string', 'max:50', 'alpha_dash',
+                Rule::unique('products', 'sku')->ignore($ignoreId)],
+            'name' => ['required', 'string', 'max:150'],
+            'unit' => ['required', 'string', 'max:20'],
+            'purchase_price' => ['required', 'numeric', 'min:0'],
+            'selling_price' => ['required', 'numeric', 'min:0', 'gte:purchase_price'],
+            'min_stock' => ['required', 'integer', 'min:0'],
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+        ];
+
+        // Stok hanya wajib diisi saat tambah produk baru (create)
+        if (! $ignoreId) {
+            $rules['stock'] = ['required', 'integer', 'min:0'];
+        }
+
+        return $request->validate($rules, [
+            'category_id.required' => 'Kategori wajib dipilih.',
+            'category_id.exists' => 'Kategori tidak valid.',
+            'sku.required' => 'SKU wajib diisi.',
+            'sku.unique' => 'SKU sudah dipakai produk lain.',
+            'sku.alpha_dash' => 'SKU hanya boleh huruf, angka, strip, dan underscore.',
+            'name.required' => 'Nama produk wajib diisi.',
+            'unit.required' => 'Satuan wajib diisi.',
+            'purchase_price.required' => 'Harga modal wajib diisi.',
+            'selling_price.required' => 'Harga jual wajib diisi.',
+            'selling_price.gte' => 'Harga jual tidak boleh di bawah modal.',
+            'stock.required' => 'Stok awal wajib diisi.',
+            'image.image' => 'File harus berupa gambar.',
+            'image.mimes' => 'Format gambar harus jpg, jpeg, png, atau webp.',
+            'image.max' => 'Gambar maksimal 2 MB.',
+        ]);
     }
 }
