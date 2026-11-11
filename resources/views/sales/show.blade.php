@@ -1,172 +1,126 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Struk - {{ $sale->invoice_number }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
-    
-    <style>
-        body {
-            background-color: #f1f5f9;
-            font-family: 'Courier New', Courier, monospace;
-            padding: 20px;
-        }
-        .receipt-container {
-            background: #fff;
-            width: 100%;
-            max-width: 350px;
-            margin: 0 auto;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        .receipt-header {
-            text-align: center;
-            margin-bottom: 20px;
-            border-bottom: 1px dashed #000;
-            padding-bottom: 10px;
-        }
-        .receipt-header h4 {
-            margin: 0;
-            font-weight: 800;
-            font-size: 1.2rem;
-        }
-        .receipt-header p {
-            margin: 2px 0;
-            font-size: 0.8rem;
-            color: #444;
-        }
-        .receipt-info {
-            font-size: 0.8rem;
-            margin-bottom: 15px;
-        }
-        .receipt-table {
-            width: 100%;
-            font-size: 0.8rem;
-            margin-bottom: 15px;
-        }
-        .receipt-table th {
-            border-bottom: 1px dashed #000;
-            padding: 5px 0;
-            text-align: left;
-        }
-        .receipt-table td {
-            padding: 5px 0;
-            vertical-align: top;
-        }
-        .receipt-footer {
-            border-top: 1px dashed #000;
-            padding-top: 10px;
-            font-size: 0.8rem;
-        }
-        .receipt-footer .row-data {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 4px;
-        }
-        .receipt-footer .total-row {
-            font-weight: 800;
-            font-size: 1rem;
-            margin: 10px 0;
-            border-top: 1px dashed #000;
-            border-bottom: 1px dashed #000;
-            padding: 8px 0;
-        }
-        .thank-you {
-            text-align: center;
-            font-size: 0.75rem;
-            margin-top: 20px;
-            color: #555;
-        }
-        @media print {
-            body { background: none; padding: 0; margin: 0; }
-            .receipt-container { box-shadow: none; max-width: 100%; padding: 0; margin: 0; }
-            .no-print { display: none !important; }
-        }
-    </style>
-</head>
-<body>
+@extends('layouts.app')
+@section('title', 'Detail Transaksi - ' . $sale->invoice_number)
+@section('content')
 
-    <div class="receipt-container">
-        
-        <div class="d-flex justify-content-between mb-3 no-print">
-            <a href="{{ route('sales.index') }}" class="btn btn-sm btn-secondary">
-                <i class="bi bi-arrow-left"></i> Kembali
-            </a>
-            <button onclick="window.print()" class="btn btn-sm btn-primary">
-                <i class="bi bi-printer"></i> Cetak Struk
-            </button>
+<div class="card">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
+            <div>
+                <h5 class="fw-bold mb-1">{{ $sale->invoice_number }}</h5>
+                <p class="text-muted mb-0">{{ $sale->sale_date->format('d F Y H:i') }}</p>
+            </div>
+            <div class="text-end">
+                @if($sale->status === 'paid')
+                    <span class="badge badge-ok">Paid</span>
+                @else
+                    <span class="badge badge-void">Void</span>
+                @endif
+                <div class="small text-muted mt-2">Kasir: {{ $sale->user->name }}</div>
+                <div class="small text-muted">Pelanggan: {{ $sale->customer->name ?? 'Umum' }}</div>
+            </div>
         </div>
 
-        <!-- HEADER STRUK DINAMIS DARI DATABASE -->
-        <div class="receipt-header">
-            <h4>{{ \App\Models\Setting::get('store_name', 'POS APP') }}</h4>
-            <p>{{ \App\Models\Setting::get('store_address', 'Jl. Contoh Alamat No. 123') }}</p>
-            <p>Telp: {{ \App\Models\Setting::get('store_phone', '0812-3456-7890') }}</p>
-        </div>
-
-        <div class="receipt-info">
-            <div>No: {{ $sale->invoice_number }}</div>
-            <div>Tgl: {{ \Carbon\Carbon::parse($sale->sale_date)->format('d/m/Y H:i') }}</div>
-            <div>Kasir: {{ $sale->user->name ?? '-' }}</div>
-            <div>Plgn: {{ $sale->customer->name ?? 'Umum' }}</div>
-        </div>
-
-        <table class="receipt-table">
-            <thead>
-                <tr>
-                    <th>Item</th>
-                    <th class="text-center">Qty</th>
-                    <th class="text-end">Total</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($sale->items as $item)
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
                     <tr>
-                        <td>
-                            {{ $item->product_name }}<br>
-                            <small style="color: #666;">@ Rp {{ number_format($item->price, 0, ',', '.') }}</small>
-                        </td>
-                        <td class="text-center">{{ $item->quantity }}</td>
-                        <td class="text-end">{{ number_format($item->subtotal, 0, ',', '.') }}</td>
+                        <th>Produk</th>
+                        <th class="amount">Harga</th>
+                        <th class="text-center">Qty</th>
+                        <th class="amount">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach($sale->items as $it)
+                    <tr>
+                        <td class="fw-semibold">{{ $it->product_name }}</td>
+                        <td class="amount">{{ rupiah($it->price) }}</td>
+                        <td class="text-center">{{ $it->quantity }}</td>
+                        <td class="amount">{{ rupiah($it->subtotal) }}</td>
                     </tr>
                 @endforeach
-            </tbody>
-        </table>
+                </tbody>
+            </table>
+        </div>
 
-        <div class="receipt-footer">
-            <div class="row-data">
-                <span>Subtotal:</span>
-                <span>Rp {{ number_format($sale->subtotal, 0, ',', '.') }}</span>
+        <div class="row">
+            <div class="col-md-6 offset-md-6">
+                <table class="table table-sm">
+                    <tr>
+                        <td>Subtotal</td>
+                        <td class="amount">{{ rupiah($sale->subtotal) }}</td>
+                    </tr>
+                    <tr>
+                        <td>Diskon</td>
+                        <td class="amount">{{ rupiah($sale->discount) }}</td>
+                    </tr>
+                    <tr class="fw-bold">
+                        <td>Total</td>
+                        <td class="amount">{{ rupiah($sale->total) }}</td>
+                    </tr>
+                    <tr>
+                        <td>Bayar ({{ strtoupper($sale->payment_method) }})</td>
+                        <td class="amount">{{ rupiah($sale->paid_amount) }}</td>
+                    </tr>
+                    <tr>
+                        <td>Kembalian</td>
+                        <td class="amount">{{ rupiah($sale->change_amount) }}</td>
+                    </tr>
+                </table>
             </div>
-            <div class="row-data">
-                <span>Diskon:</span>
-                <span>Rp {{ number_format($sale->discount, 0, ',', '.') }}</span>
+        </div>
+
+        @if($sale->note)
+            <div class="alert alert-light border mt-3 mb-3">
+                <strong>Catatan:</strong> {{ $sale->note }}
             </div>
+        @endif
+
+        <div class="mt-3 d-flex gap-2 flex-wrap">
+            <a href="{{ route('sales.index') }}" class="btn btn-light">
+                <i class="bi bi-arrow-left me-1"></i> Kembali
+            </a>
+            <a href="{{ route('sales.receipt', $sale) }}" target="_blank" class="btn btn-primary">
+                <i class="bi bi-printer me-1"></i> Cetak Struk
+            </a>
             
-            <div class="row-data total-row">
-                <span>TOTAL:</span>
-                <span>Rp {{ number_format($sale->total, 0, ',', '.') }}</span>
-            </div>
-
-            <div class="row-data">
-                <span>Bayar ({{ strtoupper($sale->payment_method) }}):</span>
-                <span>Rp {{ number_format($sale->paid_amount, 0, ',', '.') }}</span>
-            </div>
-            <div class="row-data">
-                <span>Kembalian:</span>
-                <span>Rp {{ number_format($sale->change_amount, 0, ',', '.') }}</span>
-            </div>
+            {{-- TOMBOL VOID KHUSUS ADMIN --}}
+            @if(auth()->user()->role === 'admin' && $sale->status === 'paid')
+                <button type="button" class="btn btn-outline-danger"
+                        data-bs-toggle="modal" data-bs-target="#voidModal">
+                    <i class="bi bi-x-circle me-1"></i> Void Transaksi
+                </button>
+            @endif
         </div>
-
-        <div class="thank-you">
-            <p>{{ \App\Models\Setting::get('receipt_footer', 'Terima kasih telah berbelanja!') }}</p>
-            <p>Barang yang sudah dibeli tidak dapat ditukar</p>
-        </div>
-
     </div>
+</div>
 
-</body>
-</html>
+{{-- MODAL VOID --}}
+@if(auth()->user()->role === 'admin' && $sale->status === 'paid')
+<div class="modal fade" id="voidModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ route('sales.void', $sale) }}">
+                @csrf
+                <div class="modal-header">
+                    <h5 class="modal-title">Void Transaksi</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted">
+                        Stok produk akan dikembalikan. Aksi ini tidak bisa dibatalkan.
+                    </p>
+                    <label class="form-label fw-semibold">Alasan Void <span class="text-danger">*</span></label>
+                    <textarea name="note" class="form-control" rows="3" placeholder="misal: salah input produk" required></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                    <button class="btn btn-danger">Void Transaksi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endif
+
+@endsection

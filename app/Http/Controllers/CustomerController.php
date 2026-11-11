@@ -3,37 +3,36 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
 class CustomerController extends Controller implements HasMiddleware
 {
     public static function middleware(): array
     {
-        return [
-            // Kasir boleh semua kecuali hapus
-            new Middleware('role:admin,kasir'),
-            new Middleware('role:admin', only: ['destroy']),
-        ];
+        return [new Middleware('role:admin', only: ['destroy'])];
     }
 
     public function index(Request $request)
     {
-        $search = $request->query('search');
+        $q = $request->get('search');
 
-        $customers = Customer::query()
-            ->withCount('sales')
-            ->when($search, function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%");
+        $customers = Customer::withCount('sales')
+            ->when($q, function ($x) use ($q) {
+                $x->where(function ($y) use ($q) {
+                    $y->where('name', 'like', "%$q%")
+                      ->orWhere('phone', 'like', "%$q%");
+                });
             })
             ->latest()
             ->paginate(10)
             ->withQueryString();
 
-        return view('customers.index', compact('customers', 'search'));
+        return view('customers.index', compact('customers', 'q'));
     }
 
     public function create()
@@ -43,27 +42,22 @@ class CustomerController extends Controller implements HasMiddleware
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:100',
-            'phone' => ['nullable', 'string', 'max:20', 'regex:/^08[0-9]{8,11}$/', 'unique:customers,phone'],
-            'email' => 'nullable|email|max:150',
-            'address' => 'nullable|string|max:500',
-        ], [
-            'name.required' => 'Nama pelanggan wajib diisi.',
-            'phone.regex' => 'Format nomor HP harus diawali 08 dan 10-13 digit.',
-            'phone.unique' => 'Nomor HP sudah terdaftar.',
-        ]);
+        $data = $this->validateData($request);
+        Customer::create($data);
 
-        Customer::create($validated);
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'create',
+            'model' => 'Customer',
+            'description' => 'Menambahkan pelanggan: ' . $data['name']
+        ]);
 
         return redirect()->route('customers.index')->with('success', 'Pelanggan berhasil ditambahkan.');
     }
 
     public function show(Customer $customer)
     {
-        $customer->load(['sales' => function($q) {
-            $q->where('status', 'paid')->latest()->limit(10);
-        }]);
+        $customer->load(['sales' => fn($q) => $q->latest('sale_date')->limit(20)]);
         return view('customers.show', compact('customer'));
     }
 
@@ -74,24 +68,45 @@ class CustomerController extends Controller implements HasMiddleware
 
     public function update(Request $request, Customer $customer)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:100',
-            'phone' => ['nullable', 'string', 'max:20', 'regex:/^08[0-9]{8,11}$/', Rule::unique('customers', 'phone')->ignore($customer->id)],
-            'email' => 'nullable|email|max:150',
-            'address' => 'nullable|string|max:500',
-        ], [
-            'phone.regex' => 'Format nomor HP harus diawali 08 dan 10-13 digit.',
-            'phone.unique' => 'Nomor HP sudah terdaftar.',
-        ]);
+        $customer->update($this->validateData($request, $customer->id));
 
-        $customer->update($validated);
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'update',
+            'model' => 'Customer',
+            'description' => 'Mengubah pelanggan: ' . $request->name
+        ]);
 
         return redirect()->route('customers.index')->with('success', 'Pelanggan berhasil diperbarui.');
     }
 
     public function destroy(Customer $customer)
     {
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'delete',
+            'model' => 'Customer',
+            'description' => 'Menghapus pelanggan: ' . $customer->name
+        ]);
+
         $customer->delete();
-        return redirect()->route('customers.index')->with('success', 'Pelanggan berhasil dihapus.');
+
+        return back()->with('success', 'Pelanggan dihapus. Riwayat transaksi tetap tersimpan.');
+    }
+
+    private function validateData(Request $request, ?int $ignoreId = null): array
+    {
+        return $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'phone' => ['nullable', 'string', 'max:20', 'regex:/^08[0-9]{8,11}$/',
+                Rule::unique('customers', 'phone')->ignore($ignoreId)],
+            'email' => ['nullable', 'email', 'max:150'],
+            'address' => ['nullable', 'string', 'max:500'],
+        ], [
+            'name.required' => 'Nama pelanggan wajib diisi.',
+            'phone.regex' => 'Nomor HP harus diawali 08 dan terdiri dari 10–13 digit.',
+            'phone.unique' => 'Nomor HP sudah terdaftar.',
+            'email.email' => 'Format email tidak valid.',
+        ]);
     }
 }

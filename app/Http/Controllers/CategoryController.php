@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\ActivityLog;
+use Carbon\Carbon; // Tambahan untuk timezone
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
 class CategoryController extends Controller implements HasMiddleware
@@ -17,16 +20,14 @@ class CategoryController extends Controller implements HasMiddleware
 
     public function index(Request $request)
     {
-        $search = $request->query('search');
-
-        $categories = Category::query()
-            ->withCount('products')
-            ->when($search, fn ($q) => $q->where('name', 'like', "%{$search}%"))
+        $q = $request->get('search');
+        $categories = Category::withCount('products')
+            ->when($q, fn($x) => $x->where('name', 'like', "%$q%"))
             ->orderBy('name')
             ->paginate(10)
             ->withQueryString();
 
-        return view('categories.index', compact('categories', 'search'));
+        return view('categories.index', compact('categories', 'q'));
     }
 
     public function create()
@@ -36,15 +37,20 @@ class CategoryController extends Controller implements HasMiddleware
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:100|unique:categories,name',
-            'description' => 'nullable|string|max:255',
-        ], [
-            'name.required' => 'Nama kategori wajib diisi.',
-            'name.unique' => 'Nama kategori sudah digunakan.',
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:100', 'unique:categories,name'],
+            'description' => ['nullable', 'string', 'max:255'],
         ]);
 
-        Category::create($validated);
+        Category::create($data);
+
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'create',
+            'model' => 'Category',
+            'description' => 'Menambahkan kategori: ' . $data['name'],
+            'created_at' => Carbon::now('Asia/Jakarta'), // PAKSA WIB
+        ]);
 
         return redirect()->route('categories.index')->with('success', 'Kategori berhasil ditambahkan.');
     }
@@ -56,28 +62,40 @@ class CategoryController extends Controller implements HasMiddleware
 
     public function update(Request $request, Category $category)
     {
-        $validated = $request->validate([
+        $data = $request->validate([
             'name' => ['required', 'string', 'max:100', Rule::unique('categories', 'name')->ignore($category->id)],
-            'description' => 'nullable|string|max:255',
-        ], [
-            'name.required' => 'Nama kategori wajib diisi.',
-            'name.unique' => 'Nama kategori sudah digunakan.',
+            'description' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $category->update($validated);
+        $category->update($data);
+
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'update',
+            'model' => 'Category',
+            'description' => 'Mengubah kategori: ' . $data['name'],
+            'created_at' => Carbon::now('Asia/Jakarta'), // PAKSA WIB
+        ]);
 
         return redirect()->route('categories.index')->with('success', 'Kategori berhasil diperbarui.');
     }
 
     public function destroy(Category $category)
     {
-        if ($category->products()->count() > 0) {
-            return redirect()->route('categories.index')
-                ->withErrors(['error' => 'Kategori masih dipakai oleh ' . $category->products()->count() . ' produk.']);
+        if ($category->products()->exists()) {
+            return back()->with('error', "Kategori masih dipakai oleh {$category->products()->count()} produk.");
         }
+
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'delete',
+            'model' => 'Category',
+            'description' => 'Menghapus kategori: ' . $category->name,
+            'created_at' => Carbon::now('Asia/Jakarta'), // PAKSA WIB
+        ]);
 
         $category->delete();
 
-        return redirect()->route('categories.index')->with('success', 'Kategori berhasil dihapus.');
+        return back()->with('success', 'Kategori berhasil dihapus.');
     }
 }

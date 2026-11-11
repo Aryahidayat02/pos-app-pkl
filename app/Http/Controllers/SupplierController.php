@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Supplier;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Support\Facades\Auth;
 
 class SupplierController extends Controller implements HasMiddleware
 {
@@ -16,11 +18,15 @@ class SupplierController extends Controller implements HasMiddleware
 
     public function index(Request $request)
     {
-        $search = $request->query('search');
+        $q = $request->get('search');
+        
         $suppliers = Supplier::withCount('purchases')
-            ->when($search, fn($q) => $q->where('name', 'like', "%{$search}%"))
-            ->latest()->paginate(10)->withQueryString();
-        return view('suppliers.index', compact('suppliers', 'search'));
+            ->when($q, fn($x) => $x->where('name', 'like', "%$q%"))
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('suppliers.index', compact('suppliers', 'q'));
     }
 
     public function create()
@@ -30,13 +36,16 @@ class SupplierController extends Controller implements HasMiddleware
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:150',
-            'contact_person' => 'nullable|string|max:100',
-            'phone' => 'required|string|max:20',
-            'address' => 'nullable|string|max:500',
+        $data = $this->validateData($request);
+        Supplier::create($data);
+
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'create',
+            'model' => 'Supplier',
+            'description' => 'Menambahkan supplier: ' . $data['name']
         ]);
-        Supplier::create($validated);
+
         return redirect()->route('suppliers.index')->with('success', 'Supplier berhasil ditambahkan.');
     }
 
@@ -47,22 +56,49 @@ class SupplierController extends Controller implements HasMiddleware
 
     public function update(Request $request, Supplier $supplier)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:150',
-            'contact_person' => 'nullable|string|max:100',
-            'phone' => 'required|string|max:20',
-            'address' => 'nullable|string|max:500',
+        $supplier->update($this->validateData($request));
+
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'update',
+            'model' => 'Supplier',
+            'description' => 'Mengubah supplier: ' . $request->name
         ]);
-        $supplier->update($validated);
+
         return redirect()->route('suppliers.index')->with('success', 'Supplier berhasil diperbarui.');
     }
 
     public function destroy(Supplier $supplier)
     {
-        if ($supplier->purchases()->count() > 0) {
-            return redirect()->route('suppliers.index')->withErrors(['error' => 'Supplier sudah punya riwayat stok masuk, tidak bisa dihapus.']);
+        if ($supplier->purchases()->exists()) {
+            return back()->with('error', 'Supplier sudah punya riwayat stok masuk. Tidak bisa dihapus.');
         }
+
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'delete',
+            'model' => 'Supplier',
+            'description' => 'Menghapus supplier: ' . $supplier->name
+        ]);
+
         $supplier->delete();
-        return redirect()->route('suppliers.index')->with('success', 'Supplier berhasil dihapus.');
+
+        return back()->with('success', 'Supplier berhasil dihapus.');
+    }
+
+    private function validateData(Request $request): array
+    {
+        return $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+            'contact_person' => ['nullable', 'string', 'max:100'],
+            'phone' => ['required', 'string', 'max:20'],
+            'address' => ['nullable', 'string', 'max:500'],
+        ], [
+            'name.required' => 'Nama supplier wajib diisi.',
+            'name.max' => 'Nama maksimal 150 karakter.',
+            'phone.required' => 'Nomor telepon wajib diisi.',
+            'phone.max' => 'Nomor telepon maksimal 20 karakter.',
+            'address.max' => 'Alamat maksimal 500 karakter.',
+        ]);
     }
 }

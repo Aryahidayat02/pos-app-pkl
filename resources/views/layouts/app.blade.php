@@ -227,6 +227,13 @@
                         <i class="bi bi-gear"></i> Pengaturan
                     </a>
                 </li>
+
+                {{-- MENU LOG AKTIVITAS B3 DENGAN WARNA KUNING --}}
+                <li>
+                    <a href="{{ route('logs.index') }}" class="{{ request()->routeIs('logs.*') ? 'active' : '' }}" style="color: #fbbf24; font-weight: bold;">
+                        <i class="bi bi-clock-history"></i> LOG AKTIVITAS
+                    </a>
+                </li>
             @endif
         </ul>
     </div>

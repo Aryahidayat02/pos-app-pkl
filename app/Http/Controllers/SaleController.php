@@ -2,126 +2,184 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Sale;
-use App\Models\Product;
 use App\Models\Customer;
+use App\Models\Product;
+use App\Models\Sale;
+use App\Support\DocumentNumber;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Carbon\Carbon;
 
 class SaleController extends Controller
 {
     public function create()
     {
-        $products = Product::where('is_active', 1)
-            ->where('stock', '>', 0)
-            ->orderBy('name')
-            ->get();
-            
-        $customers = Customer::orderBy('name')->get();
-
-        return view('sales.create', compact('products', 'customers'));
+        return view('sales.create', [
+            'products' => Product::active()->where('stock', '>', 0)->orderBy('name')->get(),
+            'customers' => Customer::orderBy('name')->get(),
+        ]);
     }
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'customer_id' => 'nullable|exists:customers,id',
-            'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|exists:products,id',
-            'items.*.quantity' => 'required|integer|min:1',
-            'payment_method' => 'required|in:tunai,qris,transfer',
-            'paid_amount' => 'required|numeric|min:0',
+        $data = $request->validate([
+            'customer_id' => ['nullable', 'exists:customers,id'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.product_id' => ['required', 'distinct', 'exists:products,id'],
+            'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'discount' => ['nullable', 'numeric', 'min:0'],
+            'payment_method' => ['required', 'in:tunai,qris,transfer'],
+            'paid_amount' => ['required', 'numeric', 'min:0'],
+            'note' => ['nullable', 'string', 'max:255'],
+        ], [
+            'items.required' => 'Keranjang masih kosong.',
+            'items.min' => 'Keranjang masih kosong.',
+            'items.*.product_id.required' => 'Produk wajib dipilih.',
+            'items.*.product_id.distinct' => 'Produk duplikat dalam keranjang.',
+            'items.*.quantity.required' => 'Jumlah wajib diisi.',
+            'items.*.quantity.min' => 'Jumlah minimal 1.',
+            'payment_method.required' => 'Metode pembayaran wajib dipilih.',
+            'paid_amount.required' => 'Uang diterima wajib diisi.',
         ]);
 
-        try {
-            DB::transaction(function () use ($validated) {
-                // JURUS BRUTAL: Paksa PHP pakai waktu Jakarta
-                date_default_timezone_set('Asia/Jakarta');
-                $waktuSekarang = date('Y-m-d H:i:s'); 
+        $sale = DB::transaction(function () use ($data) {
+            $ids = collect($data['items'])->pluck('product_id');
+            $products = Product::whereIn('id', $ids)->lockForUpdate()->get()->keyBy('id');
 
-                $totalAmount = 0;
-                $itemsToSave = [];
+            $subtotal = 0;
+            $itemsToSave = [];
 
-                foreach ($validated['items'] as $item) {
-                    $product = Product::lockForUpdate()->findOrFail($item['product_id']);
+            foreach ($data['items'] as $i => $item) {
+                $product = $products[$item['product_id']] ?? null;
 
-                    if ($product->stock < $item['quantity']) {
-                        throw ValidationException::withMessages([
-                            'items' => "Stok {$product->name} tidak cukup! Sisa: {$product->stock}"
-                        ]);
-                    }
-
-                    $subtotal = $product->selling_price * $item['quantity'];
-                    $totalAmount += $subtotal;
-
-                    $itemsToSave[] = [
-                        'product_id' => $product->id,
-                        'product_name' => $product->name,
-                        'price' => $product->selling_price,
-                        'purchase_price' => $product->purchase_price,
-                        'quantity' => $item['quantity'],
-                        'subtotal' => $subtotal,
-                    ];
-
-                    $product->decrement('stock', $item['quantity']);
+                if (! $product || ! $product->is_active) {
+                    throw ValidationException::withMessages(["items.$i.product_id" => 'Produk tidak tersedia.']);
                 }
 
-                if ($validated['paid_amount'] < $totalAmount) {
+                if ($product->stock < $item['quantity']) {
                     throw ValidationException::withMessages([
-                        'paid_amount' => "Uang bayar kurang! Total: Rp " . number_format($totalAmount, 0, ',', '.')
+                        "items.$i.quantity" => "Stok {$product->name} tidak cukup (sisa {$product->stock}).",
                     ]);
                 }
 
-                // Generate Invoice pakai tanggal yang udah dipaksa WIB
-                $date = date('Ymd', strtotime($waktuSekarang));
-                $countToday = Sale::whereDate('created_at', date('Y-m-d', strtotime($waktuSekarang)))->count() + 1;
-                $invoiceNumber = 'INV-' . $date . '-' . str_pad($countToday, 4, '0', STR_PAD_LEFT);
+                $lineSubtotal = $product->selling_price * $item['quantity'];
+                $subtotal += $lineSubtotal;
 
-                // Simpan Header Sales (PAKSA STRING WAKTU LOKAL)
-                $sale = Sale::create([
-                    'invoice_number' => $invoiceNumber,
-                    'user_id' => auth()->id(),
-                    'customer_id' => $validated['customer_id'] ?? null,
-                    'sale_date' => $waktuSekarang, // <--- PAKE VARIABEL INI
-                    'subtotal' => $totalAmount,
-                    'discount' => 0,
-                    'total' => $totalAmount,
-                    'payment_method' => $validated['payment_method'],
-                    'paid_amount' => $validated['paid_amount'],
-                    'change_amount' => $validated['paid_amount'] - $totalAmount,
-                    'status' => 'paid',
-                ]);
+                $itemsToSave[] = [
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'price' => $product->selling_price,
+                    'purchase_price' => $product->purchase_price,
+                    'quantity' => $item['quantity'],
+                    'subtotal' => $lineSubtotal,
+                ];
+            }
 
-                $sale->items()->createMany($itemsToSave);
-            });
+            $discount = (float) ($data['discount'] ?? 0);
+            if ($discount > $subtotal) {
+                throw ValidationException::withMessages(['discount' => 'Diskon tidak boleh melebihi subtotal.']);
+            }
+            $total = $subtotal - $discount;
 
-            return redirect()->route('sales.index')->with('success', 'Transaksi berhasil disimpan!');
-            
-        } catch (\Exception $e) {
-            return back()->with('error', 'Gagal: ' . $e->getMessage())->withInput();
-        }
+            $method = $data['payment_method'];
+            if (in_array($method, ['qris', 'transfer'])) {
+                $paid = $total;
+            } else {
+                $paid = (float) $data['paid_amount'];
+                if ($paid < $total) {
+                    throw ValidationException::withMessages(['paid_amount' => 'Uang yang diterima kurang dari total.']);
+                }
+            }
+
+            // PAKSA WAKTU JAKARTA (WIB)
+            $sale = Sale::create([
+                'invoice_number' => DocumentNumber::sale(),
+                'user_id' => Auth::id(),
+                'customer_id' => $data['customer_id'] ?? null,
+                'sale_date' => Carbon::now('Asia/Jakarta'),
+                'subtotal' => $subtotal,
+                'discount' => $discount,
+                'total' => $total,
+                'payment_method' => $method,
+                'paid_amount' => $paid,
+                'change_amount' => $paid - $total,
+                'status' => 'paid',
+                'note' => $data['note'] ?? null,
+            ]);
+
+            foreach ($itemsToSave as $item) {
+                $sale->items()->create($item);
+                $products[$item['product_id']]->decrement('stock', $item['quantity']);
+            }
+
+            return $sale;
+        });
+
+        return redirect()->route('sales.show', $sale)->with('success', 'Transaksi berhasil disimpan.');
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $query = Sale::with('user', 'customer')->orderBy('created_at', 'desc');
+        $sales = Sale::with('user', 'customer')
+            ->when(Auth::user()->role === 'kasir', fn($q) => $q->where('user_id', Auth::id()))
+            ->when($request->start_date, fn($q, $d) => $q->whereDate('sale_date', '>=', $d))
+            ->when($request->end_date, fn($q, $d) => $q->whereDate('sale_date', '<=', $d))
+            ->when($request->invoice, fn($q, $i) => $q->where('invoice_number', 'like', "%$i%"))
+            ->latest('sale_date')
+            ->paginate(15)
+            ->withQueryString();
 
-        if (auth()->user()->role === 'kasir') {
-            $query->where('user_id', auth()->id());
-        }
-
-        $sales = $query->paginate(10);
         return view('sales.index', compact('sales'));
     }
 
     public function show(Sale $sale)
     {
-        if (auth()->user()->role === 'kasir' && $sale->user_id !== auth()->id()) {
-            abort(403, 'Anda tidak berhak melihat transaksi ini.');
+        if (Auth::user()->role === 'kasir' && $sale->user_id !== Auth::id()) {
+            abort(403);
         }
 
         $sale->load('items', 'user', 'customer');
         return view('sales.show', compact('sale'));
+    }
+
+    public function receipt(Sale $sale)
+    {
+        if (Auth::user()->role === 'kasir' && $sale->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $sale->load('items', 'user', 'customer');
+        return view('sales.receipt', compact('sale'));
+    }
+
+    public function void(Request $request, Sale $sale)
+    {
+        if (Auth::user()->role !== 'admin') {
+            abort(403);
+        }
+
+        if ($sale->status === 'void') {
+            return back()->with('error', 'Transaksi sudah void.');
+        }
+
+        $request->validate([
+            'note' => ['required', 'string', 'max:255'],
+        ], [
+            'note.required' => 'Alasan void wajib diisi.',
+        ]);
+
+        DB::transaction(function () use ($sale, $request) {
+            foreach ($sale->items as $item) {
+                Product::where('id', $item->product_id)->increment('stock', $item->quantity);
+            }
+            $sale->update([
+                'status' => 'void',
+                'note' => $request->note,
+            ]);
+        });
+
+        return back()->with('success', 'Transaksi di-void, stok sudah dikembalikan.');
     }
 }

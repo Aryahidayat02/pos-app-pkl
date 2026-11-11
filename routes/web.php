@@ -11,25 +11,20 @@ use App\Http\Controllers\SaleController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\SettingController;
+use App\Http\Controllers\ActivityLogController;
 use Illuminate\Support\Facades\Route;
 
-// 1. Rute Tamu (Belum Login)
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [LoginController::class, 'login'])->name('login.attempt')->middleware('throttle:5,1');
 });
 
-// 2. Rute Logout
 Route::post('/logout', [LoginController::class, 'logout'])->middleware('auth')->name('logout');
 
-// 3. Rute Setelah Login (Auth)
 Route::middleware('auth')->group(function () {
-    
-    // Dashboard
     Route::get('/', DashboardController::class)->name('dashboard');
     Route::get('/dashboard', DashboardController::class);
 
-    // Master Data
     Route::resource('categories', CategoryController::class)->except('show');
     Route::resource('products', ProductController::class);
     Route::resource('customers', CustomerController::class);
@@ -37,29 +32,19 @@ Route::middleware('auth')->group(function () {
     Route::resource('purchases', PurchaseController::class)->only(['index', 'create', 'store', 'show']);
     Route::resource('users', UserController::class)->except('show');
     
-    // Pengaturan Toko
     Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
     Route::post('/settings', [SettingController::class, 'update'])->name('settings.update');
 
-    // ==========================================
-    // MODUL KASIR & RIWAYAT TRANSAKSI (DIPERBAIKI)
-    // ==========================================
-    
-    // Halaman Kasir (URL: /kasir, Nama Route: sales.create)
     Route::get('/kasir', [SaleController::class, 'create'])->name('sales.create');
-    
-    // Simpan Transaksi (Nama Route: sales.store)
     Route::post('/kasir', [SaleController::class, 'store'])->name('sales.store');
-    
-    // Riwayat Transaksi
     Route::get('/sales', [SaleController::class, 'index'])->name('sales.index');
-    
-    // Detail Transaksi & Struk
     Route::get('/sales/{sale}', [SaleController::class, 'show'])->name('sales.show');
-    
-    // FITUR BONUS: VOID (PEMBATALAN) TRANSAKSI
+    Route::get('/sales/{sale}/receipt', [SaleController::class, 'receipt'])->name('sales.receipt');
     Route::post('/sales/{sale}/void', [SaleController::class, 'void'])->name('sales.void');
 
-    // MODUL LAPORAN
+    Route::get('/reports/export', [ReportController::class, 'export'])->name('reports.export');
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+
+    // B3: Log Aktivitas
+    Route::get('/logs', [ActivityLogController::class, 'index'])->name('logs.index');
 });

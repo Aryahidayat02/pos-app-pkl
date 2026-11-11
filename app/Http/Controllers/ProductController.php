@@ -4,9 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\ActivityLog;
+use Carbon\Carbon; // Tambahan untuk timezone
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -14,7 +17,6 @@ class ProductController extends Controller implements HasMiddleware
 {
     public static function middleware(): array
     {
-        // Hanya admin yang bisa create, edit, hapus. Kasir cuma bisa lihat (index, show)
         return [new Middleware('role:admin', except: ['index', 'show'])];
     }
 
@@ -24,15 +26,12 @@ class ProductController extends Controller implements HasMiddleware
             ->when($request->filled('search'), function ($q) use ($request) {
                 $s = $request->search;
                 $q->where(function ($x) use ($s) {
-                    $x->where('name', 'like', "%$s%")
-                      ->orWhere('sku', 'like', "%$s%");
+                    $x->where('name', 'like', "%$s%")->orWhere('sku', 'like', "%$s%");
                 });
             })
             ->when($request->filled('category_id'), fn($q) => $q->where('category_id', $request->category_id))
             ->when($request->filled('status'), fn($q) => $q->where('is_active', $request->status === '1'))
-            ->latest()
-            ->paginate(10)
-            ->withQueryString();
+            ->latest()->paginate(10)->withQueryString();
 
         $categories = Category::orderBy('name')->get();
 
@@ -41,7 +40,6 @@ class ProductController extends Controller implements HasMiddleware
 
     public function create()
     {
-        // INI KUNCI UNTUK MEMPERBAIKI ERROR "Undefined variable $product"
         return view('products.form', [
             'product' => new Product(),
             'categories' => Category::orderBy('name')->get(),
@@ -58,6 +56,14 @@ class ProductController extends Controller implements HasMiddleware
         }
 
         Product::create($data);
+
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'create',
+            'model' => 'Product',
+            'description' => 'Menambahkan produk: ' . $data['name'],
+            'created_at' => Carbon::now('Asia/Jakarta'), // PAKSA WIB
+        ]);
 
         return redirect()->route('products.index')->with('success', 'Produk berhasil ditambahkan.');
     }
@@ -82,7 +88,6 @@ class ProductController extends Controller implements HasMiddleware
         $data['is_active'] = $request->boolean('is_active');
 
         if ($request->hasFile('image')) {
-            // Hapus gambar lama jika ada
             if ($product->image) {
                 Storage::disk('public')->delete($product->image);
             }
@@ -91,15 +96,30 @@ class ProductController extends Controller implements HasMiddleware
 
         $product->update($data);
 
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'update',
+            'model' => 'Product',
+            'description' => 'Mengubah produk: ' . $data['name'],
+            'created_at' => Carbon::now('Asia/Jakarta'), // PAKSA WIB
+        ]);
+
         return redirect()->route('products.index')->with('success', 'Produk berhasil diperbarui.');
     }
 
     public function destroy(Product $product)
     {
-        // Cegah hapus jika produk sudah pernah ada di transaksi
         if ($product->saleItems()->exists() || $product->purchaseItems()->exists()) {
             return back()->with('error', 'Produk sudah punya riwayat transaksi. Nonaktifkan saja, jangan dihapus.');
         }
+
+        ActivityLog::create([
+            'user_id' => Auth::id(),
+            'action' => 'delete',
+            'model' => 'Product',
+            'description' => 'Menghapus produk: ' . $product->name,
+            'created_at' => Carbon::now('Asia/Jakarta'), // PAKSA WIB
+        ]);
 
         if ($product->image) {
             Storage::disk('public')->delete($product->image);
@@ -124,7 +144,6 @@ class ProductController extends Controller implements HasMiddleware
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ];
 
-        // Stok hanya wajib diisi saat tambah produk baru (create)
         if (! $ignoreId) {
             $rules['stock'] = ['required', 'integer', 'min:0'];
         }

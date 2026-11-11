@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Exports\SalesExport;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ReportController extends Controller implements HasMiddleware
 {
@@ -19,69 +21,46 @@ class ReportController extends Controller implements HasMiddleware
 
     public function index(Request $request)
     {
-        // Default filter: Awal bulan ini sampai hari ini
-        $startDate = $request->input('start_date', now()->startOfMonth()->format('Y-m-d'));
-        $endDate = $request->input('end_date', now()->format('Y-m-d'));
+        $start = $request->start_date ?? now()->startOfMonth()->toDateString();
+        $end = $request->end_date ?? now()->toDateString();
 
-        // Query dasar (hanya yang paid)
-        $baseQuery = Sale::where('status', 'paid')
-            ->whereDate('sale_date', '>=', $startDate)
-            ->whereDate('sale_date', '<=', $endDate);
+        $base = Sale::where('status', 'paid')->whereBetween(DB::raw('DATE(sale_date)'), [$start, $end]);
 
-        // 1. Ringkasan Atas
-        $summary = $baseQuery->clone()->select(
-            DB::raw('COALESCE(SUM(total), 0) as total_omzet'),
-            DB::raw('COUNT(*) as total_transaksi'),
-            DB::raw('COALESCE(AVG(total), 0) as rata_rata'),
-            DB::raw('COALESCE(SUM(discount), 0) as total_diskon')
-        )->first();
+        $summary = [
+            'omzet' => (clone $base)->sum('total'),
+            'count' => (clone $base)->count(),
+            'avg'   => (clone $base)->avg('total') ?? 0,
+            'discount' => (clone $base)->sum('discount'),
+        ];
 
-        // 2. Penjualan Per Hari
-        $dailySales = $baseQuery->clone()
-            ->select(
-                DB::raw('DATE(sale_date) as tanggal'),
-                DB::raw('COUNT(*) as jumlah_transaksi'),
-                DB::raw('SUM(total) as omzet')
-            )
-            ->groupBy('tanggal')
-            ->orderBy('tanggal', 'desc')
-            ->get();
+        $perDay = Sale::where('status', 'paid')
+            ->whereBetween(DB::raw('DATE(sale_date)'), [$start, $end])
+            ->selectRaw('DATE(sale_date) as tgl, COUNT(*) as trx, SUM(total) as omzet')
+            ->groupBy('tgl')->orderBy('tgl')->get();
 
-        // 3. Produk Terlaris (Top 10)
-        $topProducts = SaleItem::select(
-                'product_id',
-                DB::raw('SUM(quantity) as total_qty'),
-                DB::raw('SUM(subtotal) as total_omzet')
-            )
-            ->whereHas('sale', function ($q) use ($startDate, $endDate) {
-                $q->where('status', 'paid')
-                  ->whereDate('sale_date', '>=', $startDate)
-                  ->whereDate('sale_date', '<=', $endDate);
-            })
-            ->with('product')
-            ->groupBy('product_id')
-            ->orderByDesc('total_qty')
-            ->limit(10)
-            ->get();
+        // PERBAIKAN: Pakai sale_items.subtotal biar gak ambigu
+        $topProducts = SaleItem::join('sales', 'sale_items.sale_id', '=', 'sales.id')
+            ->where('sales.status', 'paid')
+            ->whereBetween(DB::raw('DATE(sales.sale_date)'), [$start, $end])
+            ->selectRaw('sale_items.product_name, SUM(sale_items.quantity) as qty, SUM(sale_items.subtotal) as omzet')
+            ->groupBy('sale_items.product_name')->orderByDesc('qty')->limit(10)->get();
 
-        // 4. Laba Kotor (Omzet - Modal)
-        $profit = SaleItem::whereHas('sale', function ($q) use ($startDate, $endDate) {
-                $q->where('status', 'paid')
-                  ->whereDate('sale_date', '>=', $startDate)
-                  ->whereDate('sale_date', '<=', $endDate);
-            })
-            ->select(DB::raw('SUM((price - purchase_price) * quantity) as laba_kotor'))
-            ->first();
+        $profit = SaleItem::join('sales', 'sale_items.sale_id', '=', 'sales.id')
+            ->where('sales.status', 'paid')
+            ->whereBetween(DB::raw('DATE(sales.sale_date)'), [$start, $end])
+            ->selectRaw('SUM((sale_items.price - sale_items.purchase_price) * sale_items.quantity) as laba')
+            ->value('laba') ?? 0;
 
-        // 5. Stok Menipis
-        $lowStockProducts = Product::where('is_active', true)
-            ->whereColumn('stock', '<=', 'min_stock')
-            ->orderBy('stock', 'asc')
-            ->get();
+        $lowStock = Product::lowStock()->active()->orderBy('stock')->get();
 
-        return view('reports.index', compact(
-            'startDate', 'endDate', 'summary', 'dailySales', 
-            'topProducts', 'profit', 'lowStockProducts'
-        ));
+        return view('reports.index', compact('start', 'end', 'summary', 'perDay', 'topProducts', 'profit', 'lowStock'));
+    }
+
+    public function export(Request $request)
+    {
+        $start = $request->start_date ?? now()->startOfMonth()->toDateString();
+        $end = $request->end_date ?? now()->toDateString();
+
+        return Excel::download(new SalesExport($start, $end), 'laporan-penjualan-' . $start . '-sd-' . $end . '.xlsx');
     }
 }
