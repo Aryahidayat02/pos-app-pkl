@@ -1,28 +1,35 @@
 # POS App - Tugas PKL Astacode
 
-Aplikasi Point of Sale (POS) berbasis web yang dibangun menggunakan Laravel 13, Bootstrap 5, dan MySQL. Proyek ini dibuat untuk memenuhi tugas Praktik Kerja Lapangan (PKL) di Astacode.
+Aplikasi Point of Sale (POS) berbasis web yang dibangun menggunakan Laravel 13, Bootstrap 5, dan MySQL. Proyek ini dibuat untuk memenuhi tugas Praktik Kerja Lapangan (PKL) di Astacode. Aplikasi ini mempermudah proses transaksi jual-beli di toko, mulai dari manajemen stok, transaksi kasir, hingga laporan penjualan.
 
-## 🚀 Fitur Utama (M1-M11)
-- **Autentikasi & Hak Akses:** Login/Logout dengan role Admin & Kasir.
-- **Dashboard:** Ringkasan penjualan hari ini, transaksi, stok menipis, dan produk aktif.
-- **Master Data:** CRUD Kategori, Produk (dengan upload gambar), Pelanggan, dan Supplier.
-- **Stok Masuk:** Pencatatan barang dari supplier dengan `DB::transaction`.
-- **Transaksi Kasir:** Keranjang dinamis, validasi stok, hitung kembalian otomatis.
-- **Riwayat & Struk:** Filter transaksi, cetak struk thermal (58mm/80mm).
-- **Laporan:** Omzet, laba kotor, dan 10 produk terlaris.
-- **Pengaturan:** Profil toko dan footer struk.
-- **Manajemen User:** Kelola akun Admin dan Kasir.
+## 🚀 Fitur yang Selesai (M1 - M11 + Bonus)
 
-## 🌟 Fitur Bonus (B1, B2, B3)
-- **B1 - Export Excel:** Laporan penjualan bisa diunduh dalam format Excel (`.xlsx`).
-- **B2 - Void Transaksi:** Admin bisa membatalkan transaksi dan stok produk otomatis dikembalikan.
-- **B3 - Log Aktivitas:** Mencatat setiap aktivitas create, update, dan delete beserta data lama dan barunya.
+- **M1 - Autentikasi:** Login/Logout dengan pembatasan hak akses (Admin & Kasir).
+- **M2 - Dashboard:** Ringkasan penjualan hari ini, total transaksi, dan peringatan stok menipis.
+- **M3 - Kategori Produk:** CRUD Kategori dengan proteksi data yang terikat pada produk (Restrict on Delete).
+- **M4 - Produk:** CRUD Produk lengkap dengan upload gambar, filter kategori/status, dan validasi harga.
+- **M5 - Pelanggan:** CRUD Pelanggan dengan validasi format nomor HP.
+- **M6 - Supplier & Stok Masuk:** Pencatatan stok masuk (Purchases) dengan form dinamis dan `DB::transaction()`.
+- **M7 - Transaksi Kasir:** Halaman kasir interaktif dengan keranjang belanja (JavaScript), integrasi QRIS, dan perhitungan kembalian.
+- **M8 - Riwayat & Struk:** Daftar riwayat transaksi (filter tanggal/invoice) dan cetak struk (CSS Print 80mm).
+- **M9 - Laporan:** Laporan omzet, laba kotor, produk terlaris, dan filter tanggal.
+- **M10 - Manajemen User:** CRUD User dengan validasi password dan pembatasan role.
+- **M11 - Pengaturan Toko:** Pengaturan profil toko (Nama, Alamat, Telp, Footer Struk) yang diaplikasikan ke sidebar & struk.
+- **Bonus B1 - Export Excel:** Unduh laporan penjualan ke format `.xlsx` menggunakan `maatwebsite/excel`.
+- **Bonus B2 - Void Transaksi:** Pembatalan transaksi oleh Admin (mengembalikan stok otomatis).
+- **Bonus B3 - Log Aktivitas:** Pencatatan otomatis aktivitas Create, Update, Delete (Audit Trail).
+
+## ⚙️ Persyaratan Sistem (Requirements)
+- PHP 8.3 atau lebih baru
+- Composer
+- MySQL 8 (atau MariaDB 10.6+)
+- Node.js & NPM (Opsional, untuk build aset Vite)
 
 ## 🔑 Akun Demo
 - **Admin:** `admin@pos.test` / password: `password`
 - **Kasir:** `kasir@pos.test` / password: `password`
 
-## ⚙️ Cara Instalasi
+## 🛠️ Cara Instalasi
 1. Clone repo ini:
    ```bash
    git clone https://github.com/Aryahidayat02/pos-app-pkl.git
