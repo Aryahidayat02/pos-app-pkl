@@ -45,7 +45,8 @@
                     <!-- Baris Pertama -->
                     <tr class="item-row">
                         <td>
-                            <select name="items[0][product_id]" class="form-select product-select" required>
+                            {{-- TAMBAH CLASS SELECT2 --}}
+                            <select name="items[0][product_id]" class="form-select product-select select2" required>
                                 <option value="">-- Pilih Produk --</option>
                                 @foreach($products as $product)
                                     <option value="{{ $product->id }}" data-price="{{ $product->purchase_price }}">
@@ -89,7 +90,7 @@
         let newRow = `
             <tr class="item-row">
                 <td>
-                    <select name="items[${rowIndex}][product_id]" class="form-select product-select" required>
+                    <select name="items[${rowIndex}][product_id]" class="form-select product-select select2" required>
                         <option value="">-- Pilih Produk --</option>
                         @foreach($products as $product)
                             <option value="{{ $product->id }}" data-price="{{ $product->purchase_price }}">
@@ -107,6 +108,13 @@
             </tr>
         `;
         document.getElementById('itemBody').insertAdjacentHTML('beforeend', newRow);
+
+        // Inisialisasi ulang Select2 buat baris baru
+        $('.select2').select2({
+            theme: 'bootstrap-5',
+            width: '100%'
+        });
+
         rowIndex++;
         updateRemoveButtons();
     });

@@ -7,24 +7,21 @@ use Illuminate\Support\Facades\Cache;
 
 class Setting extends Model
 {
-    protected $fillable = ['key', 'value'];
+    protected $fillable = ['key', 'value', 'logo'];
 
     public static function get($key, $default = null)
     {
-        // Cek cache dulu
-        $cachedSetting = Cache::get('setting_' . $key);
+        $cachedSetting = Cache::get('setting_'.$key);
 
-        // Kalau cache-nya ada dan bentuknya objek, langsung balikin
         if ($cachedSetting instanceof self) {
             return $cachedSetting->value;
         }
 
-        // Kalau gak ada di cache, ambil dari database
         $setting = self::where('key', $key)->first();
 
         if ($setting) {
-            // Simpan ke cache
-            Cache::put('setting_' . $key, $setting, 3600); // Simpan 1 jam
+            Cache::put('setting_'.$key, $setting, 3600);
+
             return $setting->value;
         }
 

@@ -5,7 +5,6 @@
 @section('content')
     <!-- CARD STATISTIK -->
     <div class="row g-3 mb-4">
-        <!-- Penjualan Hari Ini -->
         <div class="col-md-3">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
@@ -15,12 +14,11 @@
                         </div>
                         <h6 class="text-muted mb-0 fw-semibold">Penjualan Hari Ini</h6>
                     </div>
-                    <h3 class="fw-bold mb-0">Rp {{ number_format($todaySalesTotal, 0, ',', '.') }}</h3>
+                    <h3 class="fw-bold mb-0">Rp {{ number_format($todaySalesTotal, 2, ',', '.') }}</h3>
                 </div>
             </div>
         </div>
 
-        <!-- Transaksi Hari Ini -->
         <div class="col-md-3">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
@@ -35,7 +33,6 @@
             </div>
         </div>
 
-        <!-- Stok Menipis -->
         <div class="col-md-3">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
@@ -50,7 +47,6 @@
             </div>
         </div>
 
-        <!-- Produk Aktif -->
         <div class="col-md-3">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
@@ -69,7 +65,7 @@
     <!-- TABEL TRANSAKSI TERAKHIR -->
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-white py-3">
-            <h5 class="mb-0 fw-bold text-dark">5 Transaksi Terakhir</h5>
+            <h5 class="mb-0 fw-bold text-dark">10 Transaksi Terakhir</h5>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -87,7 +83,7 @@
                             <tr>
                                 <td class="ps-4 fw-bold text-primary">{{ $sale->invoice_number }}</td>
                                 <td>{{ \Carbon\Carbon::parse($sale->sale_date)->format('d/m/Y H:i') }}</td>
-                                <td class="fw-bold">Rp {{ number_format($sale->total, 0, ',', '.') }}</td>
+                                <td class="fw-bold">Rp {{ number_format($sale->total, 2, ',', '.') }}</td>
                                 <td class="text-end pe-4">
                                     @if($sale->status === 'paid')
                                         <span class="badge bg-success bg-opacity-10 text-success border border-success px-3 py-2">Paid</span>

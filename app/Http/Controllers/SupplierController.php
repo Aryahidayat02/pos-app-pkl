@@ -3,11 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Supplier;
-use App\Models\ActivityLog;
+use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
-use Illuminate\Support\Facades\Auth;
 
 class SupplierController extends Controller implements HasMiddleware
 {
@@ -16,89 +17,76 @@ class SupplierController extends Controller implements HasMiddleware
         return [new Middleware('role:admin')];
     }
 
-    public function index(Request $request)
+    public function index(Request $request): View
     {
-        $q = $request->get('search');
-        
-        $suppliers = Supplier::withCount('purchases')
-            ->when($q, fn($x) => $x->where('name', 'like', "%$q%"))
-            ->latest()
-            ->paginate(10)
-            ->withQueryString();
+        $query = Supplier::query();
 
-        return view('suppliers.index', compact('suppliers', 'q'));
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function (Builder $supplierQuery) use ($search): void {
+                $supplierQuery->where('name', 'like', "%{$search}%")
+                    ->orWhere('contact_person', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%")
+                    ->orWhere('address', 'like', "%{$search}%");
+            });
+        }
+
+        $suppliers = $query->orderBy('name')->paginate(10)->withQueryString();
+
+        return view('suppliers.index', compact('suppliers'));
     }
 
-    public function create()
+    public function create(): View
     {
-        return view('suppliers.form', ['supplier' => new Supplier()]);
+        return view('suppliers.form');
     }
 
-    public function store(Request $request)
+    public function store(Request $request): RedirectResponse
     {
-        $data = $this->validateData($request);
-        Supplier::create($data);
-
-        ActivityLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'create',
-            'model' => 'Supplier',
-            'description' => 'Menambahkan supplier: ' . $data['name']
+        $validated = $request->validate([
+            'name' => 'required|string|max:150',
+            'contact_person' => 'nullable|string|max:100',
+            'phone' => ['required', 'string', 'regex:/^[0-9]{1,13}$/'],
+            'address' => 'nullable|string|max:500',
+        ], [
+            'phone.required' => 'Nomor telepon wajib diisi.',
+            'phone.regex' => 'Nomor telepon hanya boleh berisi angka dan maksimal 13 digit.',
         ]);
+
+        Supplier::create($validated);
 
         return redirect()->route('suppliers.index')->with('success', 'Supplier berhasil ditambahkan.');
     }
 
-    public function edit(Supplier $supplier)
+    public function edit(Supplier $supplier): View
     {
         return view('suppliers.form', compact('supplier'));
     }
 
-    public function update(Request $request, Supplier $supplier)
+    public function update(Request $request, Supplier $supplier): RedirectResponse
     {
-        $supplier->update($this->validateData($request));
-
-        ActivityLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'update',
-            'model' => 'Supplier',
-            'description' => 'Mengubah supplier: ' . $request->name
+        $validated = $request->validate([
+            'name' => 'required|string|max:150',
+            'contact_person' => 'nullable|string|max:100',
+            'phone' => ['required', 'string', 'regex:/^[0-9]{1,13}$/'],
+            'address' => 'nullable|string|max:500',
+        ], [
+            'phone.required' => 'Nomor telepon wajib diisi.',
+            'phone.regex' => 'Nomor telepon hanya boleh berisi angka dan maksimal 13 digit.',
         ]);
+
+        $supplier->update($validated);
 
         return redirect()->route('suppliers.index')->with('success', 'Supplier berhasil diperbarui.');
     }
 
-    public function destroy(Supplier $supplier)
+    public function destroy(Supplier $supplier): RedirectResponse
     {
-        if ($supplier->purchases()->exists()) {
-            return back()->with('error', 'Supplier sudah punya riwayat stok masuk. Tidak bisa dihapus.');
+        if ($supplier->purchases()->count() > 0) {
+            return redirect()->route('suppliers.index')->with('error', 'Supplier tidak bisa dihapus karena sudah memiliki riwayat stok masuk.');
         }
-
-        ActivityLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'delete',
-            'model' => 'Supplier',
-            'description' => 'Menghapus supplier: ' . $supplier->name
-        ]);
-
         $supplier->delete();
 
-        return back()->with('success', 'Supplier berhasil dihapus.');
-    }
-
-    private function validateData(Request $request): array
-    {
-        return $request->validate([
-            'name' => ['required', 'string', 'max:150'],
-            'contact_person' => ['nullable', 'string', 'max:100'],
-            'phone' => ['required', 'string', 'max:20'],
-            'address' => ['nullable', 'string', 'max:500'],
-        ], [
-            'name.required' => 'Nama supplier wajib diisi.',
-            'name.max' => 'Nama maksimal 150 karakter.',
-            'phone.required' => 'Nomor telepon wajib diisi.',
-            'phone.max' => 'Nomor telepon maksimal 20 karakter.',
-            'address.max' => 'Alamat maksimal 500 karakter.',
-        ]);
+        return redirect()->route('suppliers.index')->with('success', 'Supplier berhasil dihapus.');
     }
 }

@@ -2,17 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Sale;
 use App\Models\Product;
+use App\Models\Sale;
+use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
     public function __invoke()
     {
         $user = auth()->user();
-        
-        // PAKSA AMBIL TANGGAL HARI INI DI JAKARTA
-        $today = \Carbon\Carbon::now('Asia/Jakarta')->format('Y-m-d'); 
+        $today = Carbon::now('Asia/Jakarta')->format('Y-m-d');
 
         $query = Sale::where('status', 'paid');
         if ($user->role === 'kasir') {
@@ -20,24 +19,31 @@ class DashboardController extends Controller
         }
 
         $todaySalesTotal = (clone $query)
-            ->whereRaw("DATE(sale_date) = ?", [$today])
+            ->whereRaw('DATE(sale_date) = ?', [$today])
             ->sum('total');
-            
+
         $todaySalesCount = (clone $query)
-            ->whereRaw("DATE(sale_date) = ?", [$today])
+            ->whereRaw('DATE(sale_date) = ?', [$today])
             ->count();
 
         $activeProductsCount = Product::where('is_active', 1)->count();
         $lowStockCount = Product::whereRaw('stock <= min_stock')->count();
 
-        $recentSales = (clone $query)->latest('sale_date')->take(5)->get();
+        // REVISI: Ambil daftar produk stok menipis buat notifikasi
+        $lowStockProducts = Product::whereRaw('stock <= min_stock')
+            ->orderBy('stock', 'asc')
+            ->take(5)
+            ->get();
+
+        $recentSales = (clone $query)->latest('sale_date')->take(10)->get();
 
         return view('dashboard', compact(
-            'todaySalesTotal', 
-            'todaySalesCount', 
-            'lowStockCount', 
-            'activeProductsCount', 
-            'recentSales'
+            'todaySalesTotal',
+            'todaySalesCount',
+            'lowStockCount',
+            'activeProductsCount',
+            'recentSales',
+            'lowStockProducts' // <--- Kirim ke view
         ));
     }
 }

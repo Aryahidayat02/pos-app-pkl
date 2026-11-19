@@ -2,9 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
-use App\Models\Product;
 use App\Models\Category;
+use App\Models\Product;
+use App\Models\Sale;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -13,6 +14,7 @@ class SaleTest extends TestCase
     use RefreshDatabase;
 
     protected $user;
+
     protected $product;
 
     protected function setUp(): void
@@ -33,9 +35,10 @@ class SaleTest extends TestCase
         $response = $this->actingAs($this->user)->post('/kasir', [
             'payment_method' => 'tunai',
             'paid_amount' => 25000,
-            'items' => [
-                ['product_id' => $this->product->id, 'quantity' => 2]
-            ]
+            'discount' => 0,
+            'cart_data' => json_encode([
+                ['id' => $this->product->id, 'qty' => 2],
+            ]),
         ]);
 
         $response->assertSessionHasNoErrors();
@@ -49,9 +52,10 @@ class SaleTest extends TestCase
         $response = $this->actingAs($this->user)->post('/kasir', [
             'payment_method' => 'tunai',
             'paid_amount' => 100000,
-            'items' => [
-                ['product_id' => $this->product->id, 'quantity' => 15]
-            ]
+            'discount' => 0,
+            'cart_data' => json_encode([
+                ['id' => $this->product->id, 'qty' => 15],
+            ]),
         ]);
 
         // Cek apakah ada error di session atau redirect balik
@@ -64,12 +68,35 @@ class SaleTest extends TestCase
         $response = $this->actingAs($this->user)->post('/kasir', [
             'payment_method' => 'tunai',
             'paid_amount' => 5000,
-            'items' => [
-                ['product_id' => $this->product->id, 'quantity' => 2]
-            ]
+            'discount' => 0,
+            'cart_data' => json_encode([
+                ['id' => $this->product->id, 'qty' => 2],
+            ]),
         ]);
 
         $response->assertSessionHas('error');
         $this->assertEquals(10, $this->product->fresh()->stock);
+    }
+
+    public function test_detail_transaksi_dapat_menampilkan_tanggal_sebagai_datetime()
+    {
+        $sale = Sale::create([
+            'invoice_number' => 'INV-TEST-0001',
+            'user_id' => $this->user->id,
+            'customer_id' => null,
+            'sale_date' => '2026-11-18 03:07:15',
+            'subtotal' => 20000,
+            'discount' => 0,
+            'total' => 20000,
+            'payment_method' => 'tunai',
+            'paid_amount' => 25000,
+            'change_amount' => 5000,
+            'status' => 'paid',
+        ]);
+
+        $response = $this->actingAs($this->user)->get('/sales/'.$sale->id);
+
+        $response->assertOk();
+        $response->assertSee('INV-TEST-0001');
     }
 }

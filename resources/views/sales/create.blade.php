@@ -5,6 +5,8 @@
 @section('content')
 <form action="{{ route('sales.store') }}" method="POST" id="saleForm">
     @csrf
+    <input type="hidden" name="cart_data" id="cartData" value="">
+    <input type="hidden" name="discount" value="0">
 
     <div class="row">
         <!-- KIRI: PRODUK -->
@@ -215,6 +217,25 @@
             let name = el.getAttribute('data-name');
             el.style.display = name.includes(term) ? 'block' : 'none';
         });
+    });
+
+    document.getElementById('saleForm').addEventListener('submit', function(event) {
+        let cart = [];
+        document.querySelectorAll('#cartTableBody tr').forEach(function(row) {
+            let productId = parseInt(row.id.replace('row-', ''), 10);
+            let quantity = parseInt(row.querySelector('.qty-input').value, 10);
+            if (productId && quantity > 0) {
+                cart.push({ id: productId, qty: quantity });
+            }
+        });
+
+        if (cart.length === 0) {
+            event.preventDefault();
+            alert('Keranjang belanja masih kosong.');
+            return;
+        }
+
+        document.getElementById('cartData').value = JSON.stringify(cart);
     });
 </script>
 @endpush

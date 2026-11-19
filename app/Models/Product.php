@@ -2,42 +2,50 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
-        'category_id', 'sku', 'name', 'unit', 'purchase_price', 'selling_price',
-        'stock', 'min_stock', 'image', 'is_active'
+        'category_id', 'sku', 'barcode', 'name', 'unit', 'purchase_price',
+        'selling_price', 'stock', 'min_stock', 'image', 'is_active',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'purchase_price' => 'decimal:2',
+        'selling_price' => 'decimal:2',
     ];
 
-    public function category()
+    public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
     }
 
-    public function purchaseItems()
-    {
-        return $this->hasMany(PurchaseItem::class);
-    }
-
-    public function saleItems()
+    public function saleItems(): HasMany
     {
         return $this->hasMany(SaleItem::class);
     }
 
-    // Scope untuk produk aktif
-    public function scopeActive($query)
+    public function purchaseItems(): HasMany
     {
-        return $query->where('is_active', true);
+        return $this->hasMany(PurchaseItem::class);
     }
 
-    // Scope untuk produk yang stoknya menipis
-    public function scopeLowStock($query)
+    // SCOPE: Produk aktif & stok > 0
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('is_active', 1)->where('stock', '>', 0);
+    }
+
+    // SCOPE: Produk stok menipis
+    public function scopeLowStock(Builder $query): Builder
     {
         return $query->whereColumn('stock', '<=', 'min_stock');
     }

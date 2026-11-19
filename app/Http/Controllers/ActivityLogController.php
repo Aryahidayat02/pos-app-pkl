@@ -15,7 +15,13 @@ class ActivityLogController extends Controller implements HasMiddleware
 
     public function index()
     {
-        $logs = ActivityLog::with('user')->latest()->paginate(15);
+        // PAKSA TIMEZONE JAKARTA
+        date_default_timezone_set('Asia/Jakarta');
+
+        $logs = ActivityLog::with('user')
+            ->orderBy('created_at', 'desc')
+            ->paginate(15);
+
         return view('logs.index', compact('logs'));
     }
 }

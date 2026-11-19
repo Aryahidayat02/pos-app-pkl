@@ -1,18 +1,52 @@
 @extends('layouts.app')
-@section('title', $customer->exists ? 'Edit Pelanggan' : 'Tambah Pelanggan')
+
+@section('title', isset($customer) ? 'Edit Pelanggan' : 'Tambah Pelanggan')
+
 @section('content')
-    <div class="card" style="max-width: 600px;">
-        <div class="card-header">{{ $customer->exists ? 'Edit Pelanggan' : 'Tambah Pelanggan' }}</div>
-        <div class="card-body">
-            <form method="POST" action="{{ $customer->exists ? route('customers.update', $customer) : route('customers.store') }}">
-                @csrf @if($customer->exists) @method('PUT') @endif
-                <div class="mb-3"><label class="form-label">Nama Lengkap</label><input type="text" name="name" value="{{ old('name', $customer->name) }}" class="form-control @error('name') is-invalid @enderror">@error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-                <div class="mb-3"><label class="form-label">No. HP (Opsional)</label><input type="text" name="phone" value="{{ old('phone', $customer->phone) }}" class="form-control @error('phone') is-invalid @enderror">@error('phone')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-                <div class="mb-3"><label class="form-label">Email (Opsional)</label><input type="email" name="email" value="{{ old('email', $customer->email) }}" class="form-control @error('email') is-invalid @enderror">@error('email')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-                <div class="mb-3"><label class="form-label">Alamat (Opsional)</label><textarea name="address" rows="3" class="form-control">{{ old('address', $customer->address) }}</textarea></div>
-                <button class="btn btn-primary"><i class="bi bi-save me-1"></i>Simpan</button>
-                <a href="{{ route('customers.index') }}" class="btn btn-outline-secondary">Batal</a>
-            </form>
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 fw-bold">{{ isset($customer) ? 'Edit Pelanggan' : 'Tambah Pelanggan Baru' }}</h5>
+            </div>
+            <div class="card-body">
+                <form action="{{ isset($customer) ? route('customers.update', $customer->id) : route('customers.store') }}" method="POST">
+                    @csrf
+                    @if(isset($customer))
+                        @method('PUT')
+                    @endif
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Nama Pelanggan <span class="text-danger">*</span></label>
+                        <input type="text" name="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name', $customer->name ?? '') }}" required>
+                        @error('name') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">No HP <span class="text-danger">*</span></label>
+                        <input type="tel" name="phone" class="form-control @error('phone') is-invalid @enderror" value="{{ old('phone', $customer->phone ?? '') }}" placeholder="Contoh: 0812345678901" inputmode="numeric" pattern="[0-9]{1,13}" maxlength="13" required oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 13)">
+                        @error('phone') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Email</label>
+                        <input type="email" name="email" class="form-control @error('email') is-invalid @enderror" value="{{ old('email', $customer->email ?? '') }}">
+                        @error('email') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Alamat</label>
+                        <textarea name="address" class="form-control @error('address') is-invalid @enderror" rows="3">{{ old('address', $customer->address ?? '') }}</textarea>
+                        @error('address') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ route('customers.index') }}" class="btn btn-secondary">Kembali</a>
+                        <button type="submit" class="btn btn-primary">Simpan Data</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
+</div>
 @endsection

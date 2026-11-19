@@ -4,8 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Sale extends Model
 {
@@ -26,26 +24,32 @@ class Sale extends Model
         'note',
     ];
 
-    protected $casts = [
-        'sale_date' => 'datetime',
-        'subtotal' => 'decimal:2',
-        'discount' => 'decimal:2',
-        'total' => 'decimal:2',
-        'paid_amount' => 'decimal:2',
-        'change_amount' => 'decimal:2',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'sale_date' => 'datetime',
+            'subtotal' => 'decimal:2',
+            'discount' => 'decimal:2',
+            'total' => 'decimal:2',
+            'paid_amount' => 'decimal:2',
+            'change_amount' => 'decimal:2',
+        ];
+    }
 
-    public function user(): BelongsTo
+    // Relasi ke Kasir/User
+    public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    public function customer(): BelongsTo
+    // Relasi ke Pelanggan
+    public function customer()
     {
         return $this->belongsTo(Customer::class);
     }
 
-    public function items(): HasMany
+    // Relasi ke Detail Barang (SaleItem)
+    public function items()
     {
         return $this->hasMany(SaleItem::class);
     }

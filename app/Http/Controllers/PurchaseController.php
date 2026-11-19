@@ -2,26 +2,29 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Purchase;
-use App\Models\PurchaseItem;
 use App\Models\Product;
+use App\Models\Purchase;
 use App\Models\Supplier;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 class PurchaseController extends Controller
 {
     public function index()
     {
         $purchases = Purchase::with('supplier', 'user')->latest()->paginate(10);
-        return view('purchases.index', compact('purchases'));
+        $suppliers = Supplier::orderBy('name')->get();
+        $products = Product::where('is_active', 1)->orderBy('name')->get();
+
+        return view('purchases.index', compact('purchases', 'suppliers', 'products'));
     }
 
     public function create()
     {
         $suppliers = Supplier::orderBy('name')->get();
         $products = Product::where('is_active', 1)->orderBy('name')->get();
+
         return view('purchases.create', compact('suppliers', 'products'));
     }
 
@@ -40,9 +43,9 @@ class PurchaseController extends Controller
         try {
             DB::transaction(function () use ($validated) {
                 // 1. Generate No. Dokumen (PB-YYYYMMDD-0001)
-                $date = \Carbon\Carbon::now('Asia/Jakarta')->format('Ymd');
-                $countToday = Purchase::whereDate('created_at', \Carbon\Carbon::now('Asia/Jakarta')->toDateString())->count() + 1;
-                $purchaseNumber = 'PB-' . $date . '-' . str_pad($countToday, 4, '0', STR_PAD_LEFT);
+                $date = Carbon::now('Asia/Jakarta')->format('Ymd');
+                $countToday = Purchase::whereDate('created_at', Carbon::now('Asia/Jakarta')->toDateString())->count() + 1;
+                $purchaseNumber = 'PB-'.$date.'-'.str_pad($countToday, 4, '0', STR_PAD_LEFT);
 
                 // 2. Hitung Total & Simpan Header
                 $totalAmount = 0;
@@ -72,25 +75,26 @@ class PurchaseController extends Controller
                 // 3. Simpan Detail & Tambah Stok
                 foreach ($itemsToSave as $data) {
                     $purchase->items()->create($data);
-                    
+
                     // TAMBAH STOK PRODUK (KUNCI UTAMA)
                     Product::where('id', $data['product_id'])->increment('stock', $data['quantity']);
-                    
+
                     // Update harga modal terbaru di produk
                     Product::where('id', $data['product_id'])->update(['purchase_price' => $data['purchase_price']]);
                 }
             });
 
             return redirect()->route('purchases.index')->with('success', 'Stok masuk berhasil dicatat! Stok produk telah diperbarui.');
-            
+
         } catch (\Exception $e) {
-            return back()->with('error', 'Gagal: ' . $e->getMessage())->withInput();
+            return back()->with('error', 'Gagal: '.$e->getMessage())->withInput();
         }
     }
 
     public function show(Purchase $purchase)
     {
         $purchase->load('items.product', 'supplier', 'user');
+
         return view('purchases.show', compact('purchase'));
     }
 }
