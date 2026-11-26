@@ -1631,6 +1631,7 @@
     </script>
     <script src="{{ asset('js/number-format.js') }}"></script>
     <script src="{{ asset('js/product-price-validation.js') }}"></script>
+    <script src="{{ asset('js/product-image-preview.js') }}"></script>
     <script src="{{ asset('js/category-search.js') }}"></script>
     @stack('scripts')
 </body>

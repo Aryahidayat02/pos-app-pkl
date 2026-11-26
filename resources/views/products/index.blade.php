@@ -111,8 +111,14 @@
                         </div>
                     </div>
                     <div class="mb-2">
-                        <label class="form-label">Gambar (JPG/PNG)</label>
-                        <input type="file" name="image" class="form-control" accept="image/jpeg,image/png">
+                        <label for="new-product-image" class="form-label">Gambar Produk (JPG/PNG)</label>
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="border rounded-3 bg-body-tertiary d-flex align-items-center justify-content-center overflow-hidden flex-shrink-0" style="width: 88px; height: 88px;" data-product-image-preview>
+                                <img src="" alt="Preview gambar produk" class="w-100 h-100 object-fit-contain p-1" data-product-image-preview-image hidden>
+                                <span class="text-muted" data-product-image-preview-placeholder><i class="bi bi-image fs-3" aria-hidden="true"></i></span>
+                            </div>
+                            <input type="file" id="new-product-image" name="image" class="form-control" accept="image/jpeg,image/png" data-product-image-input>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">

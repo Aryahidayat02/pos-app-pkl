@@ -58,7 +58,26 @@
                     <div class="col-12"><div class="product-price-feedback form-text" aria-live="polite"></div></div>
                     <div class="col-md-6"><label class="form-label">Stok Awal</label><input type="text" name="stock" inputmode="numeric" data-number-format="id" data-number-min="0" value="{{ old('stock', $product->stock ?? 0) }}" class="form-control text-end @error('stock') is-invalid @enderror" {{ $product->exists ? 'readonly' : '' }}>@if($product->exists)<div class="form-text text-danger">Stok tidak bisa diubah di sini.</div>@endif</div>
                     <div class="col-md-6"><label class="form-label">Batas Minimal Stok</label><input type="text" name="min_stock" inputmode="numeric" data-number-format="id" data-number-min="0" value="{{ old('min_stock', $product->min_stock ?? 5) }}" class="form-control text-end @error('min_stock') is-invalid @enderror">@error('min_stock')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-                    <div class="col-md-6"><label class="form-label">Gambar Produk</label><input type="file" name="image" class="form-control @error('image') is-invalid @enderror" accept="image/jpeg,image/png">@error('image')<div class="invalid-feedback">{{ $message }}</div>@enderror @if($product->image)<img src="{{ asset('storage/' . $product->image) }}" style="height: 60px;" class="mt-2 rounded border" alt="Gambar {{ $product->name }}">@endif</div>
+                    <div class="col-md-6">
+                        <label for="product-image" class="form-label">Gambar Produk</label>
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="border rounded-3 bg-body-tertiary d-flex align-items-center justify-content-center overflow-hidden flex-shrink-0" style="width: 88px; height: 88px;" data-product-image-preview>
+                                <img
+                                    src="{{ $product->image ? asset('storage/' . $product->image) : '' }}"
+                                    alt="Preview gambar produk"
+                                    class="w-100 h-100 object-fit-contain p-1"
+                                    data-product-image-preview-image
+                                    data-original-src="{{ $product->image ? asset('storage/' . $product->image) : '' }}"
+                                    @if(! $product->image) hidden @endif
+                                >
+                                <span class="text-muted" data-product-image-preview-placeholder @if($product->image) hidden @endif>
+                                    <i class="bi bi-image fs-3" aria-hidden="true"></i>
+                                </span>
+                            </div>
+                            <input type="file" id="product-image" name="image" class="form-control @error('image') is-invalid @enderror" accept="image/jpeg,image/png" data-product-image-input>
+                        </div>
+                        @error('image')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                    </div>
                     <div class="col-md-6 d-flex align-items-end"><div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" name="is_active" value="1" {{ old('is_active', $product->is_active ?? true) ? 'checked' : '' }}><label class="form-check-label">Produk Aktif</label></div></div>
                 </div>
                 <hr class="my-4">
