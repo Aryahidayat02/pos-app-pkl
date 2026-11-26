@@ -14,12 +14,6 @@
     </div>
 
     <div class="card-body">
-        <div class="d-flex justify-content-end mb-3">
-            <div class="input-group input-group-sm" style="max-width: 320px;">
-                <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
-                <input type="search" id="products-search" class="form-control" placeholder="Cari produk..." aria-label="Cari produk">
-            </div>
-        </div>
         <div class="table-responsive">
             <table id="products-table" class="table table-hover align-middle mb-0">
                 <thead class="table-light">
@@ -139,11 +133,11 @@
             serverSide: true,
             ordering: true,
             orderMulti: false,
-            lengthChange: false,
             ajax: @json(route('products.index')),
             pageLength: 10,
+            lengthMenu: [[10, 25, 50], [10, 25, 50]],
             order: [],
-            dom: 'rtip',
+            dom: '<"row g-2 align-items-center mb-3"<"col-12 col-md-6"l><"col-12 col-md-6"f>>rtip',
             columns: [
                 { data: 'DT_RowIndex', name: 'products.id', orderable: false, searchable: false },
                 { data: 'image_display', name: 'image', orderable: false, searchable: false },
@@ -158,7 +152,9 @@
             ],
             language: {
                 processing: 'Memuat data...',
-                search: 'Cari:',
+                search: 'Cari produk:',
+                searchPlaceholder: 'Nama, SKU, atau barcode...',
+                lengthMenu: 'Tampilkan _MENU_ data',
                 info: 'Menampilkan _START_ sampai _END_ dari _TOTAL_ produk',
                 infoEmpty: 'Tidak ada produk',
                 infoFiltered: '(disaring dari _MAX_ produk)',
@@ -166,15 +162,6 @@
                 emptyTable: 'Belum ada data produk',
                 paginate: { first: 'Awal', previous: 'Sebelumnya', next: 'Berikutnya', last: 'Akhir' }
             }
-        });
-
-        let searchTimeout;
-        document.getElementById('products-search').addEventListener('input', function() {
-            window.clearTimeout(searchTimeout);
-            const searchTerm = this.value;
-            searchTimeout = window.setTimeout(function() {
-                productsTable.search(searchTerm).draw();
-            }, 150);
         });
     });
 </script>
