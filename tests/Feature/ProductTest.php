@@ -125,8 +125,8 @@ class ProductTest extends TestCase
             ->assertSee('Tambah Produk')
             ->assertSee('id="category-search"', false)
             ->assertSee('name="category_id" data-category-search-value', false)
-            ->assertSee('data-product-image-preview', false)
-            ->assertSee('data-product-image-input', false)
+            ->assertSee('data-image-preview', false)
+            ->assertSee('data-image-preview-input', false)
             ->assertSee('list="product-unit-options"', false)
             ->assertSee('product-purchase-price', false)
             ->assertSee('product-selling-price', false);

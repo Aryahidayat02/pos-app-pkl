@@ -973,19 +973,26 @@
                                 @method('PUT')
                                 <input type="hidden" name="_modal" value="adminProfileModal">
                                 <h6 class="fw-bold mb-3">Informasi Profil</h6>
-                                <div class="text-center mb-3">
-                                    @if(auth()->user()->photo)
-                                        <img src="{{ asset('storage/' . auth()->user()->photo) }}" class="rounded-circle" style="width: 76px; height: 76px; object-fit: cover;">
-                                    @else
-                                        <div class="rounded-circle bg-secondary d-inline-flex align-items-center justify-content-center" style="width: 76px; height: 76px;">
-                                            <i class="bi bi-person text-white fs-2"></i>
-                                        </div>
-                                    @endif
-                                </div>
-                                <div class="mb-3">
-                                    <label for="adminProfilePhoto" class="form-label">Foto Profil</label>
-                                    <input type="file" name="photo" id="adminProfilePhoto" class="form-control @error('photo') is-invalid @enderror" accept="image/jpeg,image/png">
-                                    @error('photo') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                <div class="mb-3 d-flex align-items-center gap-3">
+                                    <div class="rounded-circle bg-secondary-subtle d-flex align-items-center justify-content-center overflow-hidden flex-shrink-0" style="width: 76px; height: 76px;" data-image-preview>
+                                        <img
+                                            src="{{ auth()->user()->photo ? asset('storage/' . auth()->user()->photo) : '' }}"
+                                            alt="Preview foto profil"
+                                            class="w-100 h-100 object-fit-cover"
+                                            data-image-preview-image
+                                            data-original-src="{{ auth()->user()->photo ? asset('storage/' . auth()->user()->photo) : '' }}"
+                                            @if(! auth()->user()->photo) hidden @endif
+                                        >
+                                        <span class="text-secondary" data-image-preview-placeholder @if(auth()->user()->photo) hidden @endif>
+                                            <i class="bi bi-person fs-2" aria-hidden="true"></i>
+                                        </span>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <label for="adminProfilePhoto" class="form-label">Foto Profil</label>
+                                        <input type="file" name="photo" id="adminProfilePhoto" class="form-control @error('photo') is-invalid @enderror" accept="image/jpeg,image/png" data-image-preview-input>
+                                        <small class="text-secondary">Preview foto akan tampil setelah file dipilih.</small>
+                                        @error('photo') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                                    </div>
                                 </div>
                                 <div class="mb-3">
                                     <label for="adminProfileName" class="form-label">Nama</label>
@@ -1044,14 +1051,21 @@
                     </div>
                     <div class="modal-body">
                         <div class="mb-4 text-center">
-                            @if(\App\Models\Setting::get('store_logo'))
-                                <img src="{{ asset('storage/' . \App\Models\Setting::get('store_logo')) }}" class="rounded-circle mb-2" style="width: 84px; height: 84px; object-fit: cover;">
-                            @else
-                                <div class="rounded-circle bg-secondary d-inline-flex align-items-center justify-content-center mb-2" style="width: 84px; height: 84px;">
-                                    <i class="bi bi-shop text-white fs-2"></i>
-                                </div>
-                            @endif
-                            <input type="file" name="logo" id="storeProfileLogo" class="form-control @error('logo') is-invalid @enderror" accept="image/jpeg,image/png">
+                            <div class="rounded-circle bg-secondary-subtle d-inline-flex align-items-center justify-content-center overflow-hidden mb-2" style="width: 84px; height: 84px;" data-image-preview>
+                                <img
+                                    src="{{ \App\Models\Setting::get('store_logo') ? asset('storage/' . \App\Models\Setting::get('store_logo')) : '' }}"
+                                    alt="Preview logo toko"
+                                    class="w-100 h-100 object-fit-cover"
+                                    data-image-preview-image
+                                    data-original-src="{{ \App\Models\Setting::get('store_logo') ? asset('storage/' . \App\Models\Setting::get('store_logo')) : '' }}"
+                                    @if(! \App\Models\Setting::get('store_logo')) hidden @endif
+                                >
+                                <span class="text-secondary" data-image-preview-placeholder @if(\App\Models\Setting::get('store_logo')) hidden @endif>
+                                    <i class="bi bi-shop fs-2" aria-hidden="true"></i>
+                                </span>
+                            </div>
+                            <label for="storeProfileLogo" class="form-label d-block">Logo Toko</label>
+                            <input type="file" name="logo" id="storeProfileLogo" class="form-control @error('logo') is-invalid @enderror" accept="image/jpeg,image/png" data-image-preview-input>
                             <small class="text-secondary">Logo toko (JPG/PNG, maksimal 2MB)</small>
                             @error('logo') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                         </div>
@@ -1631,7 +1645,7 @@
     </script>
     <script src="{{ asset('js/number-format.js') }}"></script>
     <script src="{{ asset('js/product-price-validation.js') }}"></script>
-    <script src="{{ asset('js/product-image-preview.js') }}"></script>
+    <script src="{{ asset('js/image-preview.js') }}"></script>
     <script src="{{ asset('js/category-search.js') }}"></script>
     @stack('scripts')
 </body>

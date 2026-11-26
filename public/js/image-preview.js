@@ -2,15 +2,15 @@
     const previewUrls = new WeakMap();
 
     document.addEventListener('change', function (event) {
-        if (!(event.target instanceof HTMLInputElement) || !event.target.matches('[data-product-image-input]')) {
+        if (!(event.target instanceof HTMLInputElement) || !event.target.matches('[data-image-preview-input]')) {
             return;
         }
 
         const input = event.target;
         const form = input.closest('form');
-        const preview = form?.querySelector('[data-product-image-preview]');
-        const image = preview?.querySelector('[data-product-image-preview-image]');
-        const placeholder = preview?.querySelector('[data-product-image-preview-placeholder]');
+        const preview = form?.querySelector('[data-image-preview]');
+        const image = preview?.querySelector('[data-image-preview-image]');
+        const placeholder = preview?.querySelector('[data-image-preview-placeholder]');
         const file = input.files?.[0];
 
         if (!image || !placeholder) {

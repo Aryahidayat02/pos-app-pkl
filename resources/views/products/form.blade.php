@@ -61,20 +61,20 @@
                     <div class="col-md-6">
                         <label for="product-image" class="form-label">Gambar Produk</label>
                         <div class="d-flex align-items-center gap-3">
-                            <div class="border rounded-3 bg-body-tertiary d-flex align-items-center justify-content-center overflow-hidden flex-shrink-0" style="width: 88px; height: 88px;" data-product-image-preview>
+                            <div class="border rounded-3 bg-body-tertiary d-flex align-items-center justify-content-center overflow-hidden flex-shrink-0" style="width: 88px; height: 88px;" data-image-preview>
                                 <img
                                     src="{{ $product->image ? asset('storage/' . $product->image) : '' }}"
                                     alt="Preview gambar produk"
                                     class="w-100 h-100 object-fit-contain p-1"
-                                    data-product-image-preview-image
+                                    data-image-preview-image
                                     data-original-src="{{ $product->image ? asset('storage/' . $product->image) : '' }}"
                                     @if(! $product->image) hidden @endif
                                 >
-                                <span class="text-muted" data-product-image-preview-placeholder @if($product->image) hidden @endif>
+                                <span class="text-muted" data-image-preview-placeholder @if($product->image) hidden @endif>
                                     <i class="bi bi-image fs-3" aria-hidden="true"></i>
                                 </span>
                             </div>
-                            <input type="file" id="product-image" name="image" class="form-control @error('image') is-invalid @enderror" accept="image/jpeg,image/png" data-product-image-input>
+                            <input type="file" id="product-image" name="image" class="form-control @error('image') is-invalid @enderror" accept="image/jpeg,image/png" data-image-preview-input>
                         </div>
                         @error('image')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                     </div>

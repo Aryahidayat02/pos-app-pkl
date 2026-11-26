@@ -15,6 +15,32 @@ class ImageUploadTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_profile_image_preview_is_available_for_admins_and_cashiers(): void
+    {
+        foreach (['admin', 'kasir'] as $role) {
+            $user = User::factory()->create(['role' => $role]);
+
+            $response = $this->actingAs($user)->get(route('profile.index'));
+
+            $response->assertOk()
+                ->assertSee('id="profile-photo"', false)
+                ->assertSee('data-image-preview-input', false)
+                ->assertSee('id="adminProfilePhoto"', false);
+        }
+    }
+
+    public function test_store_logo_preview_is_available_in_settings(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $response = $this->actingAs($admin)->get(route('settings.index'));
+
+        $response->assertOk()
+            ->assertSee('id="settings-logo"', false)
+            ->assertSee('data-image-preview', false)
+            ->assertSee('data-image-preview-input', false);
+    }
+
     public function test_product_png_is_stored_as_a_500_pixel_png_cover(): void
     {
         Storage::fake('public');
@@ -76,6 +102,7 @@ class ImageUploadTest extends TestCase
                 'store_address' => '1 Example Street',
                 'store_phone' => '08123456789',
                 'receipt_footer' => 'Thank you',
+                'default_payment_method' => 'tunai',
                 'logo' => UploadedFile::fake()->image('store.png', 700, 500, 'png'),
             ]);
 

@@ -20,15 +20,21 @@
                     <div class="row g-4">
                         <div class="col-md-5">
                             <div class="rounded-4 border p-4 text-center h-100" style="background: var(--pos-surface-muted);">
-                                @if($settings['store_logo'])
-                                    <img src="{{ asset('storage/' . $settings['store_logo']) }}" class="rounded-circle border shadow-sm mb-3" style="width: 112px; height: 112px; object-fit: cover;" alt="Logo toko">
-                                @else
-                                    <div class="rounded-circle bg-primary d-inline-flex align-items-center justify-content-center mb-3" style="width: 112px; height: 112px;">
-                                        <i class="bi bi-shop text-white fs-1"></i>
-                                    </div>
-                                @endif
+                                <div class="rounded-circle bg-primary-subtle d-inline-flex align-items-center justify-content-center overflow-hidden mb-3" style="width: 112px; height: 112px;" data-image-preview>
+                                    <img
+                                        src="{{ $settings['store_logo'] ? asset('storage/' . $settings['store_logo']) : '' }}"
+                                        alt="Preview logo toko"
+                                        class="w-100 h-100 object-fit-cover"
+                                        data-image-preview-image
+                                        data-original-src="{{ $settings['store_logo'] ? asset('storage/' . $settings['store_logo']) : '' }}"
+                                        @if(! $settings['store_logo']) hidden @endif
+                                    >
+                                    <span class="text-primary" data-image-preview-placeholder @if($settings['store_logo']) hidden @endif>
+                                        <i class="bi bi-shop fs-1" aria-hidden="true"></i>
+                                    </span>
+                                </div>
                                 <label for="settings-logo" class="form-label fw-bold d-block">Logo Toko</label>
-                                <input type="file" id="settings-logo" name="logo" class="form-control" accept="image/jpeg,image/png">
+                                <input type="file" id="settings-logo" name="logo" class="form-control" accept="image/jpeg,image/png" data-image-preview-input>
                                 <small class="text-muted d-block mt-2">JPG/PNG, maksimal 2 MB. Dipakai sebagai logo struk dan favicon.</small>
                             </div>
                         </div>
