@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'POS App')</title>
+    @if(\App\Models\Setting::get('store_logo'))
+        <link rel="icon" href="{{ asset('storage/' . \App\Models\Setting::get('store_logo')) }}">
+    @else
+        <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
+    @endif
     <script>
         (function() {
             const savedTheme = localStorage.getItem('theme');
@@ -34,6 +39,8 @@
             --pos-border: #e6eaf1;
             --pos-radius: 1rem;
             --pos-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+            --pos-shadow-hover: 0 16px 36px rgba(15, 23, 42, 0.11);
+            --pos-motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
         }
 
         [data-bs-theme="dark"] {
@@ -45,6 +52,7 @@
             --pos-border: #273448;
             --pos-sidebar-bg: #09111f;
             --pos-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+            --pos-shadow-hover: 0 16px 36px rgba(0, 0, 0, 0.3);
         }
 
         html {
@@ -164,6 +172,10 @@
             white-space: nowrap;
         }
 
+        .number-format-input {
+            font-variant-numeric: tabular-nums;
+        }
+
         .sidebar-menu {
             flex: 1;
             margin: 0;
@@ -259,6 +271,7 @@
             display: flex;
             align-items: center;
             gap: 0.85rem;
+            padding-left: 0.75rem;
         }
 
         .page-title {
@@ -271,12 +284,46 @@
         }
 
         .sidebar-toggle {
-            display: none;
-            width: 2.5rem;
-            height: 2.5rem;
+            position: fixed;
+            top: 2.25rem;
+            left: calc(var(--pos-sidebar-width) - 1.5rem);
+            z-index: 1040;
+            display: inline-flex;
+            width: 3rem;
+            height: 3rem;
             align-items: center;
             justify-content: center;
             padding: 0;
+            border: 1px solid #1f2937;
+            border-radius: 0.8rem;
+            background: #050505;
+            color: #f8fafc;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+            transition: left 0.25s ease, background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+        }
+
+        .sidebar-toggle:hover {
+            border-color: #475569;
+            background: #111827;
+            color: #fff;
+            transform: translateY(-1px);
+        }
+
+        .sidebar-toggle:focus-visible {
+            outline: 3px solid rgba(var(--pos-primary-rgb), 0.5);
+            outline-offset: 3px;
+        }
+
+        .sidebar-toggle i {
+            font-size: 1.1rem;
+        }
+
+        body.sidebar-hidden .sidebar-toggle {
+            left: 1rem;
+        }
+
+        body.sidebar-hidden .topbar-start {
+            padding-left: 4.5rem;
         }
 
         .user-info {
@@ -398,7 +445,6 @@
         .select2-container--bootstrap-5 .select2-dropdown .select2-search__field {
             padding-left: 35px !important; /* Geser teks biar gak nabrak icon */
         }
-
         .page-loading-indicator {
             position: fixed;
             top: 0;
@@ -487,6 +533,13 @@
             border-radius: var(--pos-radius);
             background-color: var(--pos-surface);
             box-shadow: var(--pos-shadow);
+            transition: box-shadow 0.24s var(--pos-motion-ease), border-color 0.2s ease;
+        }
+
+        @media (hover: hover) {
+            .card:hover {
+                box-shadow: var(--pos-shadow-hover);
+            }
         }
 
         .card-header,
@@ -515,6 +568,20 @@
             letter-spacing: 0.055em;
             text-transform: uppercase;
             white-space: nowrap;
+        }
+
+        .table.dataTable thead th.sorting,
+        .table.dataTable thead th.sorting_asc,
+        .table.dataTable thead th.sorting_desc {
+            cursor: pointer;
+            transition: color 0.18s ease, background-color 0.18s ease;
+        }
+
+        .table.dataTable thead th.sorting:hover,
+        .table.dataTable thead th.sorting_asc,
+        .table.dataTable thead th.sorting_desc {
+            color: var(--pos-primary);
+            background-color: rgba(var(--pos-primary-rgb), 0.08);
         }
 
         .table-hover > tbody > tr:hover > * {
@@ -564,7 +631,7 @@
         .btn {
             border-radius: 0.7rem;
             font-weight: 600;
-            transition: color 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+            transition: color 0.2s var(--pos-motion-ease), background-color 0.2s var(--pos-motion-ease), border-color 0.2s var(--pos-motion-ease), box-shadow 0.2s var(--pos-motion-ease), transform 0.2s var(--pos-motion-ease);
         }
 
         .btn-primary {
@@ -577,10 +644,12 @@
             --bs-btn-focus-shadow-rgb: var(--pos-primary-rgb);
         }
 
-        .btn-primary:hover,
-        .btn-success:hover,
-        .btn-danger:hover {
+        .btn:hover:not(:disabled) {
             transform: translateY(-1px);
+        }
+
+        .btn:active:not(:disabled) {
+            transform: translateY(0) scale(0.98);
         }
 
         .btn:focus-visible,
@@ -672,6 +741,13 @@
             background: var(--pos-surface-muted);
         }
 
+        [data-bs-theme="dark"] .table.dataTable thead th.sorting:hover,
+        [data-bs-theme="dark"] .table.dataTable thead th.sorting_asc,
+        [data-bs-theme="dark"] .table.dataTable thead th.sorting_desc {
+            color: #c7d2fe;
+            background-color: rgba(var(--pos-primary-rgb), 0.2);
+        }
+
         [data-bs-theme="dark"] .table-hover > tbody > tr:hover > * {
             --bs-table-bg-state: rgba(148, 163, 184, 0.08);
         }
@@ -715,6 +791,16 @@
             visibility: visible;
         }
 
+        @media (min-width: 992px) {
+            body.sidebar-hidden .sidebar {
+                transform: translateX(-105%);
+            }
+
+            body.sidebar-hidden .main-content {
+                margin-left: 0;
+            }
+        }
+
         @media (max-width: 1199.98px) {
             :root {
                 --pos-sidebar-width: 248px;
@@ -747,12 +833,23 @@
                 display: block;
             }
 
-            .main-content {
-                margin-left: 0;
+            .sidebar-toggle {
+                top: 1rem;
+                left: 1rem;
+                width: 2.75rem;
+                height: 2.75rem;
             }
 
-            .sidebar-toggle {
-                display: inline-flex;
+            .topbar-start {
+                padding-left: 4.25rem;
+            }
+
+            body.sidebar-open .sidebar-toggle {
+                left: calc(min(var(--pos-sidebar-width), 86vw) - 1.375rem);
+            }
+
+            .main-content {
+                margin-left: 0;
             }
 
             .topbar {
@@ -990,6 +1087,23 @@
         </div>
     </div>
 
+    <div class="modal fade" id="masterDataFormModal" tabindex="-1" aria-labelledby="masterDataFormModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" id="masterDataFormModalTitle">Form Data</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+                </div>
+                <div class="modal-body p-0" id="masterDataFormModalContent" aria-live="polite">
+                    <div class="d-flex align-items-center gap-2 p-4 text-muted">
+                        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                        <span>Memuat formulir...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <button type="button" class="sidebar-backdrop" id="sidebarBackdrop" aria-label="Tutup menu"></button>
 
     <!-- SIDEBAR -->
@@ -1073,14 +1187,14 @@
             @endif
         </ul>
     </div>
+    <button type="button" class="sidebar-toggle" id="sidebarToggle" aria-label="Buka menu" aria-controls="appSidebar" aria-expanded="false">
+        <i class="bi bi-chevron-right" id="sidebarToggleIcon" aria-hidden="true"></i>
+    </button>
 
     <!-- MAIN CONTENT -->
     <div class="main-content">
         <div class="topbar">
             <div class="topbar-start">
-                <button type="button" class="btn btn-outline-secondary sidebar-toggle" id="sidebarToggle" aria-label="Buka menu" aria-controls="appSidebar" aria-expanded="false">
-                    <i class="bi bi-list fs-4" id="sidebarToggleIcon"></i>
-                </button>
                 <h1 class="page-title">@yield('title', 'Dashboard')</h1>
             </div>
             
@@ -1089,6 +1203,7 @@
                     <i class="bi bi-moon-fill" id="theme-icon"></i>
                 </button>
 
+                @if(\App\Models\Setting::get('low_stock_alert', '1') === '1')
                 <div class="dropdown">
                     <button type="button" class="btn btn-sm btn-outline-warning position-relative" data-bs-toggle="dropdown" aria-expanded="false" title="Notifikasi Stok Menipis" aria-label="Notifikasi stok menipis">
                         <i class="bi bi-bell-fill"></i>
@@ -1104,7 +1219,7 @@
                         @if(isset($lowStockProducts) && $lowStockProducts->count() > 0)
                             @foreach($lowStockProducts as $product)
                                 <li>
-                                    <a class="dropdown-item small text-wrap" href="{{ route('products.edit', $product->id) }}">
+                                    <a class="dropdown-item small text-wrap" href="{{ route('products.edit', $product->id) }}" data-form-modal-url="{{ route('products.edit', $product->id) }}" data-form-modal-title="Edit Produk">
                                         <div class="d-flex justify-content-between">
                                             <span class="fw-bold">{{ $product->name }}</span>
                                             <span class="text-danger fw-bold">{{ $product->stock }} {{ $product->unit }}</span>
@@ -1120,6 +1235,7 @@
                         <li><a class="dropdown-item text-center small text-primary" href="{{ route('products.index') }}">Lihat Semua Produk</a></li>
                     </ul>
                 </div>
+                @endif
 
                 <button type="button" class="btn profile-trigger d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#adminProfileModal" aria-label="Buka profil admin">
                     @if(auth()->user()->photo)
@@ -1166,6 +1282,7 @@
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
     <!-- SELECT2 JS -->
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="{{ asset('js/master-data-form-modal.js') }}"></script>
 
     <script>
         $(document).ready(function() {
@@ -1184,7 +1301,14 @@
 
             // Select2
             if ($('.select2').length > 0) {
-                $('.select2').select2({ theme: 'bootstrap-5', width: '100%' });
+                $('.select2').each(function() {
+                    const modal = $(this).closest('.modal');
+                    $(this).select2({
+                        theme: 'bootstrap-5',
+                        width: '100%',
+                        dropdownParent: modal.length ? modal : $(document.body)
+                    });
+                });
             }
         });
 
@@ -1219,9 +1343,58 @@
             saveLoadingOverlay.setAttribute('aria-hidden', 'true');
         }
 
+        function lockSubmitButton(form, submitter) {
+            const button = submitter instanceof HTMLElement && submitter.form === form
+                ? submitter
+                : form.querySelector('button[type="submit"], input[type="submit"]');
+
+            if (button) {
+                button.disabled = true;
+                button.dataset.submitLocked = 'true';
+                button.setAttribute('aria-disabled', 'true');
+            }
+        }
+
+        function updateSubmitButtons(form) {
+            const formIsValid = form.checkValidity();
+
+            form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function(button) {
+                if (button.dataset.submitLocked === 'true') {
+                    return;
+                }
+
+                const requiresCartItems = button.dataset.requiresCartItems === 'true';
+                const hasCartItems = !requiresCartItems || form.querySelector('#cartTableBody tr') !== null;
+                button.disabled = !formIsValid || !hasCartItems;
+                button.setAttribute('aria-disabled', String(button.disabled));
+            });
+        }
+
+        document.querySelectorAll('form').forEach(function(form) {
+            const update = function() {
+                updateSubmitButtons(form);
+            };
+
+            form.addEventListener('input', update);
+            form.addEventListener('change', update);
+            new MutationObserver(update).observe(form, { childList: true, subtree: true });
+            update();
+        });
+
+        document.addEventListener('shown.bs.modal', function(event) {
+            if (event.target instanceof HTMLElement) {
+                event.target.querySelectorAll('form').forEach(updateSubmitButtons);
+            }
+        });
+
         window.addEventListener('pageshow', function() {
             hidePageLoading();
             hideSaveLoading();
+            document.querySelectorAll('[data-submit-locked="true"]').forEach(function(button) {
+                button.removeAttribute('data-submit-locked');
+            });
+            document.querySelectorAll('form').forEach(updateSubmitButtons);
+            confirmDeleteButton.disabled = false;
         });
 
         document.addEventListener('click', function(event) {
@@ -1261,23 +1434,44 @@
         const mobileSidebarQuery = window.matchMedia('(max-width: 991.98px)');
 
         function closeSidebar() {
+            if (!mobileSidebarQuery.matches) {
+                return;
+            }
+
             sidebar.classList.remove('is-open');
             sidebarBackdrop.classList.remove('is-visible');
             document.body.classList.remove('sidebar-open');
             sidebarToggle.setAttribute('aria-expanded', 'false');
             sidebarToggle.setAttribute('aria-label', 'Buka menu');
-            sidebarToggleIcon.classList.remove('bi-x-lg');
-            sidebarToggleIcon.classList.add('bi-list');
+            sidebarToggleIcon.classList.remove('bi-chevron-left');
+            sidebarToggleIcon.classList.add('bi-chevron-right');
         }
 
+        function syncSidebarToggle() {
+            const isExpanded = mobileSidebarQuery.matches
+                ? sidebar.classList.contains('is-open')
+                : !document.body.classList.contains('sidebar-hidden');
+
+            sidebarToggle.setAttribute('aria-expanded', String(isExpanded));
+            sidebarToggle.setAttribute('aria-label', isExpanded ? 'Tutup menu' : 'Buka menu');
+            sidebarToggleIcon.classList.toggle('bi-chevron-right', !isExpanded);
+            sidebarToggleIcon.classList.toggle('bi-chevron-left', isExpanded);
+        }
+
+        syncSidebarToggle();
+
         sidebarToggle.addEventListener('click', function() {
-            const isOpen = sidebar.classList.toggle('is-open');
-            sidebarBackdrop.classList.toggle('is-visible', isOpen);
-            document.body.classList.toggle('sidebar-open', isOpen);
-            sidebarToggle.setAttribute('aria-expanded', String(isOpen));
-            sidebarToggle.setAttribute('aria-label', isOpen ? 'Tutup menu' : 'Buka menu');
-            sidebarToggleIcon.classList.toggle('bi-list', !isOpen);
-            sidebarToggleIcon.classList.toggle('bi-x-lg', isOpen);
+            if (mobileSidebarQuery.matches) {
+                const isOpen = sidebar.classList.toggle('is-open');
+                sidebarBackdrop.classList.toggle('is-visible', isOpen);
+                document.body.classList.toggle('sidebar-open', isOpen);
+                syncSidebarToggle();
+
+                return;
+            }
+
+            document.body.classList.toggle('sidebar-hidden');
+            syncSidebarToggle();
         });
 
         sidebarBackdrop.addEventListener('click', closeSidebar);
@@ -1293,10 +1487,11 @@
             }
         });
 
-        mobileSidebarQuery.addEventListener('change', function(event) {
-            if (!event.matches) {
-                closeSidebar();
-            }
+        mobileSidebarQuery.addEventListener('change', function() {
+            sidebar.classList.remove('is-open');
+            sidebarBackdrop.classList.remove('is-visible');
+            document.body.classList.remove('sidebar-open');
+            syncSidebarToggle();
         });
 
         const deleteConfirmModalElement = document.getElementById('deleteConfirmModal');
@@ -1313,6 +1508,8 @@
             const form = event.target;
             if (form.dataset.skipSaveLoading === 'true') {
                 delete form.dataset.skipSaveLoading;
+                delete form.dataset.saveSubmissionPending;
+                lockSubmitButton(form, event.submitter);
                 return;
             }
 
@@ -1321,6 +1518,7 @@
             if (methodOverride?.value.toUpperCase() === 'DELETE') {
                 if (form.dataset.deleteConfirmed === 'true') {
                     delete form.dataset.deleteConfirmed;
+                    lockSubmitButton(form, event.submitter);
                     showSaveLoading('Menghapus data...');
                     return;
                 }
@@ -1337,17 +1535,36 @@
 
             if (!form.target || form.target === '_self') {
                 event.preventDefault();
+                if (form.dataset.saveSubmissionPending === 'true') {
+                    return;
+                }
+
+                form.dataset.saveSubmissionPending = 'true';
                 showSaveLoading('Menyimpan data...');
                 const submitter = event.submitter;
+                const loadingStartedAt = performance.now();
+                const requestedMinimumLoadingMs = Number.parseInt(form.dataset.minimumLoadingMs || '0', 10);
+                const minimumLoadingMs = Number.isFinite(requestedMinimumLoadingMs)
+                    ? Math.max(0, requestedMinimumLoadingMs)
+                    : 0;
 
                 window.requestAnimationFrame(function() {
                     window.requestAnimationFrame(function() {
-                        form.dataset.skipSaveLoading = 'true';
-                        if (submitter instanceof HTMLElement && submitter.form === form) {
-                            form.requestSubmit(submitter);
-                        } else {
-                            form.requestSubmit();
-                        }
+                        const submitForm = function() {
+                            form.dataset.skipSaveLoading = 'true';
+                            if (submitter instanceof HTMLElement && submitter.form === form) {
+                                form.requestSubmit(submitter);
+                            } else {
+                                form.requestSubmit();
+                            }
+                        };
+
+                        const remainingLoadingMs = Math.max(
+                            0,
+                            minimumLoadingMs - (performance.now() - loadingStartedAt),
+                        );
+
+                        window.setTimeout(submitForm, remainingLoadingMs);
                     });
                 });
             }
@@ -1361,6 +1578,7 @@
             const form = pendingDeleteForm;
             const row = form.closest('tr');
             pendingDeleteForm = null;
+            confirmDeleteButton.disabled = true;
             deleteConfirmModal.hide();
 
             if (row) {
@@ -1411,6 +1629,9 @@
             }
         }
     </script>
+    <script src="{{ asset('js/number-format.js') }}"></script>
+    <script src="{{ asset('js/product-price-validation.js') }}"></script>
+    <script src="{{ asset('js/category-search.js') }}"></script>
     @stack('scripts')
 </body>
 </html>

@@ -6,18 +6,63 @@ use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\Supplier;
 use Carbon\Carbon;
+use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Yajra\DataTables\Facades\DataTables;
 
 class PurchaseController extends Controller
 {
-    public function index()
+    public function index(Request $request): View|JsonResponse
     {
-        $purchases = Purchase::with('supplier', 'user')->latest()->paginate(10);
+        $purchases = Purchase::query()
+            ->leftJoin('suppliers', 'suppliers.id', '=', 'purchases.supplier_id')
+            ->leftJoin('users as staff', 'staff.id', '=', 'purchases.user_id')
+            ->select([
+                'purchases.id',
+                'purchases.purchase_number',
+                'purchases.purchase_date',
+                'purchases.supplier_id',
+                'purchases.user_id',
+                'purchases.total_amount',
+                'suppliers.name as supplier_name',
+                'staff.name as staff_name',
+            ])
+            ->orderByDesc('purchases.purchase_date')
+            ->orderByDesc('purchases.id');
+
+        if ($request->ajax()) {
+            return DataTables::eloquent($purchases)
+                ->addIndexColumn()
+                ->editColumn('purchase_date', fn (Purchase $purchase): string => $purchase->purchase_date->format('d/m/Y'))
+                ->editColumn('total_amount', fn (Purchase $purchase): string => rupiah($purchase->total_amount))
+                ->editColumn('supplier_name', fn (Purchase $purchase): string => $purchase->supplier_name ?: '-')
+                ->editColumn('staff_name', fn (Purchase $purchase): string => $purchase->staff_name ?: '-')
+                ->filterColumn('supplier_name', function (Builder $query, string $keyword): void {
+                    $query->where('suppliers.name', 'like', "%{$keyword}%");
+                })
+                ->filterColumn('staff_name', function (Builder $query, string $keyword): void {
+                    $query->where('staff.name', 'like', "%{$keyword}%");
+                })
+                ->orderColumn('supplier_name', function (Builder $query, string $direction): void {
+                    $query->orderBy('suppliers.name', $direction === 'desc' ? 'desc' : 'asc');
+                })
+                ->orderColumn('staff_name', function (Builder $query, string $direction): void {
+                    $query->orderBy('staff.name', $direction === 'desc' ? 'desc' : 'asc');
+                })
+                ->addColumn('actions', function (Purchase $purchase): string {
+                    return view('purchases.datatables.actions', ['purchase' => $purchase])->render();
+                })
+                ->rawColumns(['actions'])
+                ->toJson();
+        }
+
         $suppliers = Supplier::orderBy('name')->get();
         $products = Product::where('is_active', 1)->orderBy('name')->get();
 
-        return view('purchases.index', compact('purchases', 'suppliers', 'products'));
+        return view('purchases.index', compact('suppliers', 'products'));
     }
 
     public function create()

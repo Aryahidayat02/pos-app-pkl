@@ -13,7 +13,7 @@
             <div class="row mb-4">
                 <div class="col-md-4">
                     <label class="form-label fw-bold">Supplier <span class="text-danger">*</span></label>
-                    <select name="supplier_id" class="form-select" required>
+                    <select name="supplier_id" class="form-select select2" required>
                         <option value="">-- Pilih Supplier --</option>
                         @foreach($suppliers as $supplier)
                             <option value="{{ $supplier->id }}" {{ old('supplier_id') == $supplier->id ? 'selected' : '' }}>{{ $supplier->name }}</option>
@@ -55,8 +55,8 @@
                                 @endforeach
                             </select>
                         </td>
-                        <td><input type="number" name="items[0][quantity]" class="form-control qty-input" value="1" min="1" required></td>
-                        <td><input type="number" name="items[0][purchase_price]" class="form-control price-input" value="0" min="0" required></td>
+                        <td><input type="text" name="items[0][quantity]" inputmode="numeric" data-number-format="id" data-number-min="1" class="form-control qty-input text-end" value="1" required></td>
+                        <td><input type="text" name="items[0][purchase_price]" inputmode="decimal" data-number-format="id" data-number-decimals="2" data-number-min="0" class="form-control price-input text-end" value="0" required></td>
                         <td class="subtotal-text align-middle fw-bold">Rp 0</td>
                         <td class="text-center align-middle">
                             <button type="button" class="btn btn-sm btn-danger remove-row" disabled><i class="bi bi-trash"></i></button>
@@ -99,18 +99,19 @@
                         @endforeach
                     </select>
                 </td>
-                <td><input type="number" name="items[${rowIndex}][quantity]" class="form-control qty-input" value="1" min="1" required></td>
-                <td><input type="number" name="items[${rowIndex}][purchase_price]" class="form-control price-input" value="0" min="0" required></td>
+                <td><input type="text" name="items[${rowIndex}][quantity]" inputmode="numeric" data-number-format="id" data-number-min="1" class="form-control qty-input text-end" value="1" required></td>
+                <td><input type="text" name="items[${rowIndex}][purchase_price]" inputmode="decimal" data-number-format="id" data-number-decimals="2" data-number-min="0" class="form-control price-input text-end" value="0" required></td>
                 <td class="subtotal-text align-middle fw-bold">Rp 0</td>
                 <td class="text-center align-middle">
                     <button type="button" class="btn btn-sm btn-danger remove-row"><i class="bi bi-trash"></i></button>
                 </td>
             </tr>
         `;
-        document.getElementById('itemBody').insertAdjacentHTML('beforeend', newRow);
+        const itemBody = document.getElementById('itemBody');
+        itemBody.insertAdjacentHTML('beforeend', newRow);
 
         // Inisialisasi ulang Select2 buat baris baru
-        $('.select2').select2({
+        $(itemBody.lastElementChild).find('.select2').select2({
             theme: 'bootstrap-5',
             width: '100%'
         });
@@ -143,7 +144,7 @@
             let selectedOption = e.target.options[e.target.selectedIndex];
             let price = selectedOption.getAttribute('data-price') || 0;
             let row = e.target.closest('tr');
-            row.querySelector('.price-input').value = price;
+            window.PosNumberFormat.setValue(row.querySelector('.price-input'), price);
             hitungSubtotal(row);
         }
     });
@@ -156,8 +157,8 @@
     });
 
     function hitungSubtotal(row) {
-        let qty = parseFloat(row.querySelector('.qty-input').value) || 0;
-        let price = parseFloat(row.querySelector('.price-input').value) || 0;
+        let qty = window.PosNumberFormat.parseLocalizedValue(row.querySelector('.qty-input').value) || 0;
+        let price = window.PosNumberFormat.parseLocalizedValue(row.querySelector('.price-input').value) || 0;
         let subtotal = qty * price;
         row.querySelector('.subtotal-text').innerText = 'Rp ' + subtotal.toLocaleString('id-ID');
         hitungGrandTotal();
@@ -166,8 +167,8 @@
     function hitungGrandTotal() {
         let total = 0;
         document.querySelectorAll('.item-row').forEach(row => {
-            let qty = parseFloat(row.querySelector('.qty-input').value) || 0;
-            let price = parseFloat(row.querySelector('.price-input').value) || 0;
+            let qty = window.PosNumberFormat.parseLocalizedValue(row.querySelector('.qty-input').value) || 0;
+            let price = window.PosNumberFormat.parseLocalizedValue(row.querySelector('.price-input').value) || 0;
             total += (qty * price);
         });
         document.getElementById('grandTotal').innerText = 'Rp ' + total.toLocaleString('id-ID');

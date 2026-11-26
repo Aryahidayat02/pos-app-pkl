@@ -31,7 +31,7 @@
             </div>
             <div class="table-responsive">
                 <table class="table mb-0" id="itemsTable">
-                    <thead><tr><th>Produk</th><th style="width: 100px;">Qty</th><th style="width: 150px;">Harga Beli</th><th class="amount" style="width: 150px;">Subtotal</th><th style="width: 50px;"></th></tr></thead>
+                    <thead><tr><th>Produk</th><th style="width: 100px;">Qty</th><th style="width: 150px;">Harga Beli (Rp)</th><th class="amount" style="width: 150px;">Subtotal</th><th style="width: 50px;"></th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -48,8 +48,8 @@
                     @foreach($products as $p) <option value="{{ $p->id }}" data-price="{{ $p->purchase_price }}">{{ $p->name }} ({{ $p->sku }})</option> @endforeach
                 </select>
             </td>
-            <td><input type="number" name="items[__INDEX__][quantity]" class="form-control form-control-sm qty" min="1" value="1" oninput="calcRow(this)" required></td>
-            <td><input type="number" name="items[__INDEX__][purchase_price]" class="form-control form-control-sm price" min="0" value="0" oninput="calcRow(this)" required></td>
+            <td><input type="text" name="items[__INDEX__][quantity]" inputmode="numeric" data-number-format="id" data-number-min="1" class="form-control form-control-sm qty text-end" value="1" oninput="calcRow(this)" required></td>
+            <td><input type="text" name="items[__INDEX__][purchase_price]" inputmode="decimal" data-number-format="id" data-number-decimals="2" data-number-min="0" class="form-control form-control-sm price text-end" value="0" oninput="calcRow(this)" required></td>
             <td class="amount subtotal fw-medium">Rp 0</td>
             <td class="text-center"><button type="button" class="btn btn-sm btn-icon btn-outline-danger" onclick="this.closest('tr').remove()"><i class="bi bi-x"></i></button></td>
         </tr>
@@ -64,15 +64,15 @@
         }
         function calcRow(el) {
             const tr = el.closest('tr');
-            const qty = parseFloat(tr.querySelector('.qty').value) || 0;
-            const price = parseFloat(tr.querySelector('.price').value) || 0;
+            const qty = window.PosNumberFormat.parseLocalizedValue(tr.querySelector('.qty').value) || 0;
+            const price = window.PosNumberFormat.parseLocalizedValue(tr.querySelector('.price').value) || 0;
             tr.querySelector('.subtotal').innerText = 'Rp ' + (qty * price).toLocaleString('id-ID');
         }
         document.addEventListener('change', function(e) {
             if (e.target.tagName === 'SELECT' && e.target.name.includes('[product_id]')) {
                 const price = e.target.selectedOptions[0].dataset.price || 0;
                 const tr = e.target.closest('tr');
-                tr.querySelector('.price').value = price;
+                window.PosNumberFormat.setValue(tr.querySelector('.price'), price);
                 calcRow(tr.querySelector('.price'));
             }
         });

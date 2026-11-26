@@ -3,13 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
-use App\Models\ActivityLog;
-use Carbon\Carbon; // Tambahan untuk timezone
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Yajra\DataTables\Facades\DataTables;
 
 class CategoryController extends Controller implements HasMiddleware
 {
@@ -18,21 +18,30 @@ class CategoryController extends Controller implements HasMiddleware
         return [new Middleware('role:admin')];
     }
 
-    public function index(Request $request)
+    public function index(Request $request): View|JsonResponse
     {
-        $q = $request->get('search');
-        $categories = Category::withCount('products')
-            ->when($q, fn($x) => $x->where('name', 'like', "%$q%"))
-            ->orderBy('name')
-            ->paginate(10)
-            ->withQueryString();
+        $categories = Category::query()
+            ->select(['id', 'name', 'description'])
+            ->withCount('products');
 
-        return view('categories.index', compact('categories', 'q'));
+        if ($request->ajax()) {
+            return DataTables::eloquent($categories)
+                ->addIndexColumn()
+                ->editColumn('description', fn (Category $category): string => $category->description ?: '-')
+                ->editColumn('products_count', fn (Category $category): string => $category->products_count.' Produk')
+                ->addColumn('actions', function (Category $category): string {
+                    return view('categories.datatables.actions', ['category' => $category])->render();
+                })
+                ->rawColumns(['actions'])
+                ->toJson();
+        }
+
+        return view('categories.index');
     }
 
     public function create()
     {
-        return view('categories.form', ['category' => new Category()]);
+        return view('categories.form', ['category' => new Category]);
     }
 
     public function store(Request $request)
@@ -43,14 +52,6 @@ class CategoryController extends Controller implements HasMiddleware
         ]);
 
         Category::create($data);
-
-        ActivityLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'create',
-            'model' => 'Category',
-            'description' => 'Menambahkan kategori: ' . $data['name'],
-            'created_at' => Carbon::now('Asia/Jakarta'), // PAKSA WIB
-        ]);
 
         return redirect()->route('categories.index')->with('success', 'Kategori berhasil ditambahkan.');
     }
@@ -69,14 +70,6 @@ class CategoryController extends Controller implements HasMiddleware
 
         $category->update($data);
 
-        ActivityLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'update',
-            'model' => 'Category',
-            'description' => 'Mengubah kategori: ' . $data['name'],
-            'created_at' => Carbon::now('Asia/Jakarta'), // PAKSA WIB
-        ]);
-
         return redirect()->route('categories.index')->with('success', 'Kategori berhasil diperbarui.');
     }
 
@@ -85,14 +78,6 @@ class CategoryController extends Controller implements HasMiddleware
         if ($category->products()->exists()) {
             return back()->with('error', "Kategori masih dipakai oleh {$category->products()->count()} produk.");
         }
-
-        ActivityLog::create([
-            'user_id' => Auth::id(),
-            'action' => 'delete',
-            'model' => 'Category',
-            'description' => 'Menghapus kategori: ' . $category->name,
-            'created_at' => Carbon::now('Asia/Jakarta'), // PAKSA WIB
-        ]);
 
         $category->delete();
 

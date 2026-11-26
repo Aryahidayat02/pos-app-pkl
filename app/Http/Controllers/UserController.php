@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use Yajra\DataTables\Facades\DataTables;
 
 class UserController extends Controller implements HasMiddleware
 {
@@ -16,15 +19,32 @@ class UserController extends Controller implements HasMiddleware
         return [new Middleware('role:admin')];
     }
 
-    public function index()
+    public function index(Request $request): View|JsonResponse
     {
-        $users = User::latest()->paginate(10);
-        return view('users.index', compact('users'));
+        $users = User::query()
+            ->select(['id', 'name', 'email', 'role', 'is_active', 'created_at'])
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
+
+        if ($request->ajax()) {
+            return DataTables::eloquent($users)
+                ->addIndexColumn()
+                ->addColumn('status_display', function (User $user): string {
+                    return view('users.datatables.status', ['user' => $user])->render();
+                })
+                ->addColumn('actions', function (User $user): string {
+                    return view('users.datatables.actions', ['user' => $user])->render();
+                })
+                ->rawColumns(['status_display', 'actions'])
+                ->toJson();
+        }
+
+        return view('users.index');
     }
 
     public function create()
     {
-        return view('users.form', ['user' => new User()]);
+        return view('users.form', ['user' => new User]);
     }
 
     public function store(Request $request)
@@ -40,6 +60,7 @@ class UserController extends Controller implements HasMiddleware
         $validated['is_active'] = $request->boolean('is_active', true);
 
         User::create($validated);
+
         return redirect()->route('users.index')->with('success', 'User berhasil ditambahkan.');
     }
 
@@ -65,6 +86,7 @@ class UserController extends Controller implements HasMiddleware
 
         $validated['is_active'] = $request->boolean('is_active', true);
         $user->update($validated);
+
         return redirect()->route('users.index')->with('success', 'User berhasil diperbarui.');
     }
 
@@ -74,6 +96,7 @@ class UserController extends Controller implements HasMiddleware
             return redirect()->route('users.index')->withErrors(['error' => 'Tidak bisa menghapus akun sendiri.']);
         }
         $user->delete();
+
         return redirect()->route('users.index')->with('success', 'User berhasil dihapus.');
     }
 }

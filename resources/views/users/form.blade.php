@@ -28,8 +28,8 @@
                     <input class="form-check-input" type="checkbox" name="is_active" id="is_active" value="1" {{ old('is_active', $user->is_active ?? true) ? 'checked' : '' }}>
                     <label class="form-check-label" for="is_active">Akun Aktif</label>
                 </div>
-                <button class="btn btn-primary"><i class="bi bi-save me-1"></i>Simpan</button>
-                <a href="{{ route('users.index') }}" class="btn btn-outline-secondary">Batal</a>
+                <button type="submit" class="btn btn-primary"><i class="bi {{ $user->exists ? 'bi-arrow-repeat' : 'bi-save' }} me-1"></i>{{ $user->exists ? 'Update' : 'Simpan' }}</button>
+                <a href="{{ route('users.index') }}" data-form-modal-cancel class="btn btn-outline-secondary"><i class="bi bi-x-circle me-1"></i>Batal</a>
             </form>
         </div>
     </div>

@@ -40,7 +40,7 @@ class CategoryTest extends TestCase
         $this->assertDatabaseHas('categories', ['id' => $kategori->id]);
     }
 
-    public function test_admin_bisa_membuka_halaman_kedua_kategori(): void
+    public function test_admin_can_search_and_paginate_categories_with_yajra(): void
     {
         $admin = User::factory()->create(['role' => 'admin']);
 
@@ -48,12 +48,46 @@ class CategoryTest extends TestCase
             Category::create(['name' => sprintf('Pagination Category %02d', $number)]);
         }
 
-        $firstPageResponse = $this->actingAs($admin)->get(route('categories.index'));
-        $firstPageResponse->assertOk()->assertSee('page=2', false);
+        $this->actingAs($admin)
+            ->get(route('categories.index'))
+            ->assertOk()
+            ->assertSee('categories-table', false);
 
-        $secondPageResponse = $this->get(route('categories.index', ['page' => 2]));
-        $secondPageResponse->assertOk()
-            ->assertSee('Pagination Category 11')
-            ->assertDontSee('Pagination Category 01');
+        $pageResponse = $this->getJson(
+            route('categories.index', $this->dataTableParameters(10)),
+            ['X-Requested-With' => 'XMLHttpRequest'],
+        );
+
+        $pageResponse->assertOk()
+            ->assertJsonPath('recordsTotal', 11)
+            ->assertJsonPath('recordsFiltered', 11)
+            ->assertJsonPath('data.0.name', 'Pagination Category 11');
+
+        $searchResponse = $this->getJson(
+            route('categories.index', $this->dataTableParameters(0, 'Pagination Category 03')),
+            ['X-Requested-With' => 'XMLHttpRequest'],
+        );
+
+        $searchResponse->assertOk()
+            ->assertJsonPath('recordsFiltered', 1)
+            ->assertJsonPath('data.0.name', 'Pagination Category 03');
+    }
+
+    private function dataTableParameters(int $start, string $search = ''): array
+    {
+        return [
+            'draw' => 1,
+            'start' => $start,
+            'length' => 10,
+            'search' => ['value' => $search, 'regex' => false],
+            'order' => [['column' => 1, 'dir' => 'asc']],
+            'columns' => [
+                ['data' => 'DT_RowIndex', 'name' => 'DT_RowIndex', 'searchable' => 'false', 'orderable' => 'false'],
+                ['data' => 'name', 'name' => 'name', 'searchable' => 'true', 'orderable' => 'true'],
+                ['data' => 'description', 'name' => 'description', 'searchable' => 'false', 'orderable' => 'true'],
+                ['data' => 'products_count', 'name' => 'products_count', 'searchable' => 'false', 'orderable' => 'true'],
+                ['data' => 'actions', 'name' => 'actions', 'searchable' => 'false', 'orderable' => 'false'],
+            ],
+        ];
     }
 }

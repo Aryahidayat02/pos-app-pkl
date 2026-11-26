@@ -2,13 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\PurchaseItem;
 use App\Models\Supplier;
 use Illuminate\Contracts\View\View;
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Yajra\DataTables\Facades\DataTables;
 
 class SupplierController extends Controller implements HasMiddleware
 {
@@ -17,23 +21,32 @@ class SupplierController extends Controller implements HasMiddleware
         return [new Middleware('role:admin')];
     }
 
-    public function index(Request $request): View
+    public function index(Request $request): View|JsonResponse
     {
-        $query = Supplier::query();
+        $suppliers = Supplier::query()
+            ->select(['id', 'name', 'contact_person', 'phone', 'address'])
+            ->selectSub(
+                PurchaseItem::query()
+                    ->join('purchases', 'purchases.id', '=', 'purchase_items.purchase_id')
+                    ->whereColumn('purchases.supplier_id', 'suppliers.id')
+                    ->selectRaw('COALESCE(SUM(purchase_items.quantity), 0)'),
+                'supplied_quantity',
+            );
 
-        if ($request->filled('search')) {
-            $search = $request->input('search');
-            $query->where(function (Builder $supplierQuery) use ($search): void {
-                $supplierQuery->where('name', 'like', "%{$search}%")
-                    ->orWhere('contact_person', 'like', "%{$search}%")
-                    ->orWhere('phone', 'like', "%{$search}%")
-                    ->orWhere('address', 'like', "%{$search}%");
-            });
+        if ($request->ajax()) {
+            return DataTables::eloquent($suppliers)
+                ->addIndexColumn()
+                ->editColumn('contact_person', fn (Supplier $supplier): string => $supplier->contact_person ?: '-')
+                ->editColumn('address', fn (Supplier $supplier): string => Str::limit($supplier->address ?? '', 30) ?: '-')
+                ->editColumn('supplied_quantity', fn (Supplier $supplier): int => (int) $supplier->supplied_quantity)
+                ->addColumn('actions', function (Supplier $supplier): string {
+                    return view('suppliers.datatables.actions', ['supplier' => $supplier])->render();
+                })
+                ->rawColumns(['actions'])
+                ->toJson();
         }
 
-        $suppliers = $query->orderBy('name')->paginate(10)->withQueryString();
-
-        return view('suppliers.index', compact('suppliers'));
+        return view('suppliers.index');
     }
 
     public function create(): View
@@ -44,13 +57,15 @@ class SupplierController extends Controller implements HasMiddleware
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:150',
+            'name' => ['required', 'string', 'max:150', 'unique:suppliers,name'],
             'contact_person' => 'nullable|string|max:100',
-            'phone' => ['required', 'string', 'regex:/^[0-9]{1,13}$/'],
+            'phone' => ['required', 'string', 'regex:/^[0-9]{1,13}$/', 'unique:suppliers,phone'],
             'address' => 'nullable|string|max:500',
         ], [
             'phone.required' => 'Nomor telepon wajib diisi.',
             'phone.regex' => 'Nomor telepon hanya boleh berisi angka dan maksimal 13 digit.',
+            'name.unique' => 'Nama supplier ini sudah terdaftar.',
+            'phone.unique' => 'Nomor telepon supplier ini sudah terdaftar.',
         ]);
 
         Supplier::create($validated);
@@ -66,13 +81,15 @@ class SupplierController extends Controller implements HasMiddleware
     public function update(Request $request, Supplier $supplier): RedirectResponse
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:150',
+            'name' => ['required', 'string', 'max:150', Rule::unique('suppliers', 'name')->ignore($supplier->id)],
             'contact_person' => 'nullable|string|max:100',
-            'phone' => ['required', 'string', 'regex:/^[0-9]{1,13}$/'],
+            'phone' => ['required', 'string', 'regex:/^[0-9]{1,13}$/', Rule::unique('suppliers', 'phone')->ignore($supplier->id)],
             'address' => 'nullable|string|max:500',
         ], [
             'phone.required' => 'Nomor telepon wajib diisi.',
             'phone.regex' => 'Nomor telepon hanya boleh berisi angka dan maksimal 13 digit.',
+            'name.unique' => 'Nama supplier ini sudah terdaftar.',
+            'phone.unique' => 'Nomor telepon supplier ini sudah terdaftar.',
         ]);
 
         $supplier->update($validated);

@@ -66,6 +66,26 @@
     </div>
 </div>
 
+<div class="row g-3 mb-4">
+    <div class="col-xl-7">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white fw-bold">Grafik Omzet Harian</div>
+            <div class="card-body">
+                <div id="sales-line-chart" aria-live="polite"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-5">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white fw-bold">Candlestick Transaksi Harian</div>
+            <div class="card-body">
+                <div id="sales-candlestick-chart" aria-live="polite"></div>
+                <p class="form-text mb-0">Open/High/Low/Close memakai nilai total tiap transaksi pada hari tersebut.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row g-3">
     <!-- Penjualan Per Hari -->
     <div class="col-md-6">
@@ -155,3 +175,10 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+    <script>
+        window.reportChartData = {{ \Illuminate\Support\Js::from($chartData) }};
+    </script>
+    <script src="{{ asset('js/report-charts.js') }}"></script>
+@endpush

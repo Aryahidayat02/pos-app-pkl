@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\ImageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 class ProfileController extends Controller
@@ -15,23 +17,25 @@ class ProfileController extends Controller
         return view('profile.index');
     }
 
-    public function update(Request $request)
+    public function update(Request $request, ImageService $imageService)
     {
         $user = Auth::user();
         $validated = $request->validate([
             'name' => 'required|string|max:100',
-            'email' => 'required|email|max:150|unique:users,email,'.$user->id,
-            'photo' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'email' => ['required', 'email', 'max:150', Rule::unique('users', 'email')->ignore($user->id)],
+            'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'extensions:jpg,jpeg,png', 'max:2048'],
         ]);
 
+        $oldPhoto = $user->photo;
         if ($request->hasFile('photo')) {
-            if ($user->photo) {
-                Storage::disk('public')->delete($user->photo);
-            }
-            $validated['photo'] = $request->file('photo')->store('profiles', 'public');
+            $validated['photo'] = $imageService->storeCover($request->file('photo'), 'profiles');
         }
 
         $user->update($validated);
+
+        if ($request->hasFile('photo') && $oldPhoto && ! filter_var($oldPhoto, FILTER_VALIDATE_URL)) {
+            Storage::disk('public')->delete($oldPhoto);
+        }
 
         return back()->with('success', 'Profil berhasil diperbarui.');
     }

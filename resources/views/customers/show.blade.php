@@ -10,7 +10,9 @@
                     <p class="text-muted mb-1"><i class="bi bi-telephone me-1"></i> {{ $customer->phone ?: '—' }}</p>
                     <p class="text-muted mb-1"><i class="bi bi-envelope me-1"></i> {{ $customer->email ?: '—' }}</p>
                     <p class="text-muted mb-3"><i class="bi bi-geo-alt me-1"></i> {{ $customer->address ?: '—' }}</p>
-                    <a href="{{ route('customers.edit', $customer) }}" class="btn btn-sm btn-primary w-100">Edit Profil</a>
+                    <a href="{{ route('customers.edit', $customer) }}" data-form-modal-url="{{ route('customers.edit', $customer) }}" data-form-modal-title="Edit Pelanggan" class="btn btn-sm btn-primary w-100">
+                        <i class="bi bi-pencil-square me-1"></i>Edit Profil
+                    </a>
                 </div>
             </div>
         </div>

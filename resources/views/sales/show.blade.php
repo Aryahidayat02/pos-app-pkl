@@ -27,6 +27,7 @@
                         <th>Produk</th>
                         <th class="amount">Harga</th>
                         <th class="text-center">Qty</th>
+                        <th class="amount">Diskon</th>
                         <th class="amount">Subtotal</th>
                     </tr>
                 </thead>
@@ -36,7 +37,8 @@
                         <td class="fw-semibold">{{ $it->product_name }}</td>
                         <td class="amount">{{ rupiah($it->price) }}</td>
                         <td class="text-center">{{ $it->quantity }}</td>
-                        <td class="amount">{{ rupiah($it->subtotal) }}</td>
+                        <td class="amount">{{ $it->discount > 0 ? rupiah($it->discount) : '-' }}</td>
+                        <td class="amount">{{ rupiah($it->subtotal - $it->discount) }}</td>
                     </tr>
                 @endforeach
                 </tbody>
@@ -73,6 +75,11 @@
         @if($sale->note)
             <div class="alert alert-light border mt-3 mb-3">
                 <strong>Catatan:</strong> {{ $sale->note }}
+            </div>
+        @endif
+        @if($sale->void_reason)
+            <div class="alert alert-danger mt-3 mb-3">
+                <strong>Alasan void:</strong> {{ $sale->void_reason }}
             </div>
         @endif
 

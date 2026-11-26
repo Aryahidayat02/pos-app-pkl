@@ -22,6 +22,7 @@ class Sale extends Model
         'change_amount',
         'status',
         'note',
+        'void_reason',
     ];
 
     protected function casts(): array

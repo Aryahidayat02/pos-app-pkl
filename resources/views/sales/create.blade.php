@@ -3,10 +3,18 @@
 @section('title', 'Kasir')
 
 @section('content')
+@if($errors->any())
+    <div class="alert alert-danger" role="alert">
+        <ul class="mb-0">
+            @foreach($errors->all() as $message)
+                <li>{{ $message }}</li>
+            @endforeach
+        </ul>
+    </div>
+@endif
 <form action="{{ route('sales.store') }}" method="POST" id="saleForm">
     @csrf
     <input type="hidden" name="cart_data" id="cartData" value="">
-    <input type="hidden" name="discount" value="0">
 
     <div class="row">
         <!-- KIRI: PRODUK -->
@@ -60,9 +68,10 @@
                         <thead>
                             <tr>
                                 <th>Barang</th>
-                                <th width="80">Qty</th>
+                                <th style="width: 76px;">Qty</th>
+                                <th style="width: 170px;">Diskon</th>
                                 <th>Subtotal</th>
-                                <th></th>
+                                <th style="width: 42px;"></th>
                             </tr>
                         </thead>
                         <tbody id="cartTableBody"></tbody>
@@ -87,15 +96,20 @@
                     <div class="mb-2">
                         <label class="small fw-bold">Metode Bayar</label>
                         <select name="payment_method" id="paymentMethod" class="form-select form-select-sm">
-                            <option value="tunai">Tunai</option>
-                            <option value="qris">QRIS</option>
-                            <option value="transfer">Transfer</option>
+                            <option value="tunai" @selected(\App\Models\Setting::get('default_payment_method', 'tunai') === 'tunai')>Tunai</option>
+                            <option value="qris" @selected(\App\Models\Setting::get('default_payment_method', 'tunai') === 'qris')>QRIS</option>
+                            <option value="transfer" @selected(\App\Models\Setting::get('default_payment_method', 'tunai') === 'transfer')>Transfer</option>
                         </select>
                     </div>
 
                     <div class="mb-3">
+                        <label for="saleNote" class="small fw-bold">Catatan</label>
+                        <textarea name="note" id="saleNote" class="form-control form-control-sm" rows="2" maxlength="255" placeholder="Catatan transaksi (opsional)">{{ old('note') }}</textarea>
+                    </div>
+
+                    <div class="mb-3">
                         <label class="small fw-bold">Uang Diterima (Rp)</label>
-                        <input type="number" name="paid_amount" id="paidAmount" class="form-control form-control-sm" required placeholder="0">
+                        <input type="text" name="paid_amount" id="paidAmount" inputmode="numeric" data-number-format="id" data-number-min="0" class="form-control form-control-sm text-end fw-semibold" required placeholder="Contoh: 1.090.000">
                         
                         <div class="d-flex gap-1 mt-2 flex-wrap">
                             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setUang(50000)">50rb</button>
@@ -105,7 +119,7 @@
                         </div>
                     </div>
 
-                    <button type="submit" class="btn btn-primary w-100 fw-bold" id="btnSubmit" disabled>
+                    <button type="submit" class="btn btn-primary w-100 fw-bold" id="btnSubmit" data-requires-cart-items="true" disabled>
                         <i class="bi bi-save"></i> Simpan Transaksi
                     </button>
                 </div>
@@ -126,13 +140,13 @@
         
         if (existingRow) {
             qtyInput = existingRow.querySelector('.qty-input');
-            let currentQty = parseInt(qtyInput.value);
+            let currentQty = window.PosNumberFormat.parseLocalizedValue(qtyInput.value);
             
             if (currentQty >= maxStock) {
                 alert('Stok ' + name + ' tidak cukup!');
                 return;
             }
-            qtyInput.value = currentQty + 1;
+            window.PosNumberFormat.setValue(qtyInput, currentQty + 1);
             updateSubtotal(id, price);
         } else {
             document.getElementById('emptyText').style.display = 'none';
@@ -148,11 +162,19 @@
                     <input type="hidden" name="items[${itemCounter}][product_id]" value="${id}">
                 </td>
                 <td>
-                    <input type="number" name="items[${itemCounter}][quantity]" class="form-control form-control-sm qty-input" value="1" min="1" max="${maxStock}" onchange="updateSubtotal(${id}, ${price}, this.value)">
+                    <input type="text" name="items[${itemCounter}][quantity]" inputmode="numeric" data-number-format="id" data-number-min="1" data-number-max="${maxStock}" class="form-control form-control-sm qty-input text-end" value="1" oninput="updateSubtotal(${id}, ${price})">
+                </td>
+                <td>
+                    <select name="items[${itemCounter}][discount_type]" class="form-select form-select-sm discount-type" onchange="updateSubtotal(${id}, ${price})">
+                        <option value="amount">Nominal (Rp)</option>
+                        <option value="percent">Persentase (%)</option>
+                    </select>
+                    <input type="text" name="items[${itemCounter}][discount_value]" inputmode="decimal" data-number-format="id" data-number-decimals="2" data-number-min="0" class="form-control form-control-sm discount-value text-end mt-1" value="0" aria-label="Nilai diskon ${name}" oninput="updateSubtotal(${id}, ${price})">
+                    <small class="discount-preview text-danger"></small>
                 </td>
                 <td class="subtotal-text">Rp ${price.toLocaleString('id-ID')}</td>
                 <td>
-                    <button type="button" class="btn btn-sm btn-danger" onclick="hapusItem(${id}, ${price})">x</button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" aria-label="Hapus ${name}" onclick="hapusItem(${id})"><i class="bi bi-x-lg"></i></button>
                 </td>
             `;
             
@@ -161,32 +183,46 @@
             updateSubtotal(id, price);
         }
         
-        document.getElementById('btnSubmit').disabled = false;
+        updateSubmitButton();
     }
 
-    function updateSubtotal(id, price, newQty = null) {
+    function updateSubtotal(id, price) {
         let row = document.getElementById('row-' + id);
         let qtyInput = row.querySelector('.qty-input');
-        
-        if (newQty) {
-            qtyInput.value = newQty;
-        }
-        
-        let qty = parseInt(qtyInput.value);
-        let subtotal = price * qty;
-        
+        let discountType = row.querySelector('.discount-type').value;
+        let discountInput = row.querySelector('.discount-value');
+
+        const qty = window.PosNumberFormat.parseLocalizedValue(qtyInput.value) ?? 0;
+        const discountValue = window.PosNumberFormat.parseLocalizedValue(discountInput.value) ?? 0;
+        const grossSubtotal = price * qty;
+        const discountAmount = discountType === 'percent'
+            ? grossSubtotal * discountValue / 100
+            : discountValue;
+        const subtotal = Math.max(0, grossSubtotal - discountAmount);
+        const isInvalidDiscount = discountType === 'percent'
+            ? discountValue > 100
+            : discountValue > grossSubtotal;
+
+        discountInput.setCustomValidity(isInvalidDiscount
+            ? discountType === 'percent'
+                ? 'Diskon persentase maksimal 100%.'
+                : 'Diskon nominal tidak boleh melebihi subtotal produk.'
+            : '');
+        row.querySelector('.discount-preview').innerText = discountAmount > 0
+            ? '-Rp ' + discountAmount.toLocaleString('id-ID')
+            : '';
         row.querySelector('.subtotal-text').innerText = 'Rp ' + subtotal.toLocaleString('id-ID');
+        row.querySelector('.subtotal-text').dataset.amount = String(subtotal);
         hitungTotal();
     }
 
-    function hapusItem(id, price) {
+    function hapusItem(id) {
         let row = document.getElementById('row-' + id);
         row.remove();
         
         if (document.getElementById('cartTableBody').children.length === 0) {
             document.getElementById('emptyText').style.display = 'block';
             document.getElementById('cartTable').style.display = 'none';
-            document.getElementById('btnSubmit').disabled = true;
         }
         hitungTotal();
     }
@@ -194,21 +230,29 @@
     function hitungTotal() {
         totalAmount = 0;
         let subtotals = document.querySelectorAll('.subtotal-text');
-        
+
         subtotals.forEach(el => {
-            let text = el.innerText.replace('Rp ', '').replace(/\./g, '');
-            totalAmount += parseInt(text);
+            totalAmount += Number(el.dataset.amount) || 0;
         });
         
         document.getElementById('totalText').innerText = 'Rp ' + totalAmount.toLocaleString('id-ID');
+        updateSubmitButton();
+    }
+
+    function updateSubmitButton() {
+        const saleForm = document.getElementById('saleForm');
+        const hasCartItems = document.querySelector('#cartTableBody tr') !== null;
+        document.getElementById('btnSubmit').disabled = !hasCartItems || !saleForm.checkValidity();
     }
 
     function setUang(nominal) {
-        document.getElementById('paidAmount').value = nominal;
+        window.PosNumberFormat.setValue(document.getElementById('paidAmount'), nominal);
+        updateSubmitButton();
     }
 
     function setUangPas() {
-        document.getElementById('paidAmount').value = totalAmount;
+        window.PosNumberFormat.setValue(document.getElementById('paidAmount'), totalAmount);
+        updateSubmitButton();
     }
 
     document.getElementById('searchInput').addEventListener('input', function(e) {
@@ -217,13 +261,16 @@
             let name = el.getAttribute('data-name');
             el.style.display = name.includes(term) ? 'block' : 'none';
         });
+
     });
+
+    document.getElementById('paidAmount').addEventListener('input', updateSubmitButton);
 
     document.getElementById('saleForm').addEventListener('submit', function(event) {
         let cart = [];
         document.querySelectorAll('#cartTableBody tr').forEach(function(row) {
             let productId = parseInt(row.id.replace('row-', ''), 10);
-            let quantity = parseInt(row.querySelector('.qty-input').value, 10);
+            let quantity = window.PosNumberFormat.parseLocalizedValue(row.querySelector('.qty-input').value);
             if (productId && quantity > 0) {
                 cart.push({ id: productId, qty: quantity });
             }

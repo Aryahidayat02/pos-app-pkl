@@ -23,7 +23,7 @@
 
                     <div class="mb-3">
                         <label class="form-label fw-bold">Foto Profil</label>
-                        <input type="file" name="photo" class="form-control @error('photo') is-invalid @enderror">
+                        <input type="file" name="photo" class="form-control @error('photo') is-invalid @enderror" accept="image/jpeg,image/png">
                         @error('photo') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
 

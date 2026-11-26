@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Validation\Rule;
+use Yajra\DataTables\Facades\DataTables;
 
 class CustomerController extends Controller implements HasMiddleware
 {
@@ -19,21 +21,25 @@ class CustomerController extends Controller implements HasMiddleware
         ];
     }
 
-    public function index(Request $request): View
+    public function index(Request $request): View|JsonResponse
     {
-        $query = Customer::withCount('sales');
+        $customers = Customer::query()
+            ->select(['id', 'name', 'phone', 'email', 'address'])
+            ->withCount('sales');
 
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('phone', 'like', "%{$search}%");
-            });
+        if ($request->ajax()) {
+            return DataTables::eloquent($customers)
+                ->addIndexColumn()
+                ->editColumn('email', fn (Customer $customer): string => $customer->email ?: '-')
+                ->editColumn('sales_count', fn (Customer $customer): string => $customer->sales_count.'x')
+                ->addColumn('actions', function (Customer $customer): string {
+                    return view('customers.datatables.actions', ['customer' => $customer])->render();
+                })
+                ->rawColumns(['actions'])
+                ->toJson();
         }
 
-        $customers = $query->orderBy('name')->paginate(10)->withQueryString();
-
-        return view('customers.index', compact('customers'));
+        return view('customers.index');
     }
 
     public function create(): View
@@ -46,7 +52,7 @@ class CustomerController extends Controller implements HasMiddleware
         $validated = $request->validate([
             'name' => 'required|string|max:100',
             'phone' => ['required', 'string', 'regex:/^[0-9]{1,13}$/', 'unique:customers,phone'],
-            'email' => 'nullable|email|max:150',
+            'email' => ['nullable', 'email', 'max:150', 'unique:customers,email'],
             'address' => 'nullable|string|max:500',
         ], [
             'phone.required' => 'Nomor telepon wajib diisi.',
@@ -78,7 +84,7 @@ class CustomerController extends Controller implements HasMiddleware
         $validated = $request->validate([
             'name' => 'required|string|max:100',
             'phone' => ['required', 'string', 'regex:/^[0-9]{1,13}$/', Rule::unique('customers', 'phone')->ignore($customer->id)],
-            'email' => 'nullable|email|max:150',
+            'email' => ['nullable', 'email', 'max:150', Rule::unique('customers', 'email')->ignore($customer->id)],
             'address' => 'nullable|string|max:500',
         ], [
             'phone.required' => 'Nomor telepon wajib diisi.',

@@ -10,9 +10,10 @@
 
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-hover table-datatable align-middle mb-0">
+            <table id="sales-table" class="table table-hover align-middle mb-0">
                 <thead class="table-light">
                     <tr>
+                        <th>#</th>
                         <th>Invoice</th>
                         <th>Tanggal</th>
                         <th>Kasir</th>
@@ -22,36 +23,46 @@
                         <th class="text-end">Aksi</th>
                     </tr>
                 </thead>
-                <tbody>
-                    @forelse($sales as $sale)
-                        <tr>
-                            <td class="fw-bold text-primary">{{ $sale->invoice_number }}</td>
-                            {{-- HAPUS CONVERT TIMEZONE, LANGSUNG FORMAT --}}
-                            <td>{{ \Carbon\Carbon::parse($sale->sale_date)->format('d/m/Y H:i') }}</td>
-                            <td>{{ $sale->user->name ?? '-' }}</td>
-                            <td>{{ $sale->customer->name ?? 'Umum' }}</td>
-                            <td class="fw-bold">Rp {{ number_format($sale->total, 0, ',', '.') }}</td>
-                            <td>
-                                @if($sale->status === 'paid')
-                                    <span class="badge bg-success bg-opacity-10 text-success border border-success">Paid</span>
-                                @else
-                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger">Void</span>
-                                @endif
-                            </td>
-                            <td class="text-end">
-                                <a href="{{ route('sales.show', $sale->id) }}" class="btn btn-sm btn-outline-primary">
-                                    <i class="bi bi-eye"></i> Detail
-                                </a>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="7" class="text-center py-4 text-muted">Belum ada data transaksi.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
+                <tbody></tbody>
             </table>
         </div>
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    $(function() {
+        $('#sales-table').DataTable({
+            processing: true,
+            serverSide: true,
+            searchDelay: 300,
+            ajax: @json(route('sales.index')),
+            pageLength: 10,
+            lengthMenu: [[10, 25, 50], [10, 25, 50]],
+            order: [[2, 'desc']],
+            columns: [
+                { data: 'DT_RowIndex', name: 'sales.id', orderable: false, searchable: false },
+                { data: 'invoice_number', name: 'sales.invoice_number' },
+                { data: 'sale_date', name: 'sales.sale_date' },
+                { data: 'cashier_name', name: 'cashier_name' },
+                { data: 'customer_name', name: 'customer_name' },
+                { data: 'total', name: 'sales.total', searchable: false },
+                { data: 'status_display', name: 'sales.status', searchable: false },
+                { data: 'actions', name: 'actions', orderable: false, searchable: false }
+            ],
+            language: {
+                processing: 'Memuat data...',
+                search: 'Cari:',
+                lengthMenu: 'Tampilkan _MENU_ data',
+                info: 'Menampilkan _START_ sampai _END_ dari _TOTAL_ transaksi',
+                infoEmpty: 'Tidak ada transaksi',
+                infoFiltered: '(disaring dari _MAX_ transaksi)',
+                zeroRecords: 'Transaksi tidak ditemukan',
+                emptyTable: 'Belum ada data transaksi',
+                paginate: { first: 'Awal', previous: 'Sebelumnya', next: 'Berikutnya', last: 'Akhir' }
+            }
+        });
+    });
+</script>
+@endpush

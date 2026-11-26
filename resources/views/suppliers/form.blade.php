@@ -41,8 +41,8 @@
                     </div>
 
                     <div class="d-flex justify-content-between">
-                        <a href="{{ route('suppliers.index') }}" class="btn btn-secondary">Kembali</a>
-                        <button type="submit" class="btn btn-primary">Simpan Data</button>
+                        <a href="{{ route('suppliers.index') }}" data-form-modal-cancel class="btn btn-secondary"><i class="bi bi-x-circle me-1"></i>Batal</a>
+                        <button type="submit" class="btn btn-primary"><i class="bi {{ isset($supplier) ? 'bi-arrow-repeat' : 'bi-save' }} me-1"></i>{{ isset($supplier) ? 'Update' : 'Simpan' }}</button>
                     </div>
                 </form>
             </div>

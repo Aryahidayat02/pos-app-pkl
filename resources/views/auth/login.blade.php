@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login — POS App</title>
+    <title>Login — {{ \App\Models\Setting::get('store_name', 'POS App') }}</title>
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -47,6 +47,13 @@
             color: #4f46e5;
             margin-bottom: 15px;
             display: inline-block;
+        }
+
+        .brand-icon img {
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            object-fit: cover;
         }
 
         .login-title {
@@ -156,9 +163,13 @@
     <div class="login-card">
         <!-- Header -->
         <div class="brand-icon">
-            <i class="bi bi-shop"></i>
+            @if(\App\Models\Setting::get('store_logo'))
+                <img src="{{ asset('storage/'.\App\Models\Setting::get('store_logo')) }}?v={{ time() }}" alt="Logo toko">
+            @else
+                <i class="bi bi-shop"></i>
+            @endif
         </div>
-        <h2 class="login-title">POS App</h2>
+        <h2 class="login-title">{{ \App\Models\Setting::get('store_name', 'POS App') }}</h2>
         <p class="login-subtitle">Silakan login untuk melanjutkan</p>
 
         <!-- Form -->

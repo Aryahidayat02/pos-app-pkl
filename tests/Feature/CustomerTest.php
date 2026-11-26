@@ -11,7 +11,7 @@ class CustomerTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_customer_list_can_open_the_second_page(): void
+    public function test_customer_table_can_search_and_paginate_with_yajra(): void
     {
         $user = User::factory()->create();
 
@@ -19,16 +19,48 @@ class CustomerTest extends TestCase
             Customer::create([
                 'name' => sprintf('Customer %02d', $number),
                 'phone' => sprintf('081234567%04d', $number),
+                'email' => sprintf('customer%02d@example.test', $number),
             ]);
         }
 
-        $firstPageResponse = $this->actingAs($user)->get(route('customers.index'));
-        $firstPageResponse->assertOk()->assertSee('page=2', false);
+        $this->actingAs($user)
+            ->get(route('customers.index'))
+            ->assertOk()
+            ->assertSee('customers-table', false);
 
-        $secondPageResponse = $this->get(route('customers.index', ['page' => 2]));
-        $secondPageResponse->assertOk()
-            ->assertSee('Customer 11')
-            ->assertDontSee('Customer 01');
+        $pageResponse = $this->getJson(
+            route('customers.index', $this->dataTableParameters(10)),
+            ['X-Requested-With' => 'XMLHttpRequest'],
+        );
+
+        $pageResponse->assertOk()
+            ->assertJsonPath('recordsTotal', 11)
+            ->assertJsonPath('recordsFiltered', 11)
+            ->assertJsonPath('data.0.name', 'Customer 11');
+
+        $searchResponse = $this->getJson(
+            route('customers.index', $this->dataTableParameters(0, '0812345670003')),
+            ['X-Requested-With' => 'XMLHttpRequest'],
+        );
+
+        $searchResponse->assertOk()
+            ->assertJsonPath('recordsFiltered', 1)
+            ->assertJsonPath('data.0.name', 'Customer 03');
+    }
+
+    public function test_customer_profile_edit_opens_from_the_current_page(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $customer = Customer::create([
+            'name' => 'Customer Edit Modal',
+            'phone' => '0812345678901',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('customers.show', $customer))
+            ->assertOk()
+            ->assertSee('data-form-modal-url="'.route('customers.edit', $customer).'"', false)
+            ->assertSee('id="masterDataFormModal"', false);
     }
 
     public function test_customer_phone_is_required(): void
@@ -71,6 +103,38 @@ class CustomerTest extends TestCase
         $this->assertDatabaseHas('customers', ['phone' => '0812345678901']);
     }
 
+    public function test_customer_rejects_duplicate_phone_numbers_and_email_addresses(): void
+    {
+        $user = User::factory()->create();
+        Customer::create([
+            'name' => 'Existing Customer One',
+            'phone' => '0812345678901',
+            'email' => 'customer-one@example.test',
+        ]);
+        Customer::create([
+            'name' => 'Existing Customer Two',
+            'phone' => '0812345678902',
+            'email' => 'customer-two@example.test',
+        ]);
+
+        $duplicatePhoneResponse = $this->actingAs($user)->post(route('customers.store'), [
+            'name' => 'New Customer One',
+            'phone' => '0812345678901',
+            'email' => 'new-customer@example.test',
+        ]);
+
+        $duplicatePhoneResponse->assertSessionHasErrors('phone');
+
+        $duplicateEmailResponse = $this->post(route('customers.store'), [
+            'name' => 'New Customer Two',
+            'phone' => '0812345678903',
+            'email' => 'customer-one@example.test',
+        ]);
+
+        $duplicateEmailResponse->assertSessionHasErrors('email');
+        $this->assertDatabaseMissing('customers', ['name' => 'New Customer Two']);
+    }
+
     public function test_customer_cannot_clear_phone_when_updating(): void
     {
         $user = User::factory()->create();
@@ -86,5 +150,24 @@ class CustomerTest extends TestCase
 
         $response->assertSessionHasErrors('phone');
         $this->assertDatabaseHas('customers', ['id' => $customer->id, 'phone' => '0812345678901']);
+    }
+
+    private function dataTableParameters(int $start, string $search = ''): array
+    {
+        return [
+            'draw' => 1,
+            'start' => $start,
+            'length' => 10,
+            'search' => ['value' => $search, 'regex' => false],
+            'order' => [['column' => 1, 'dir' => 'asc']],
+            'columns' => [
+                ['data' => 'DT_RowIndex', 'name' => 'DT_RowIndex', 'searchable' => 'false', 'orderable' => 'false'],
+                ['data' => 'name', 'name' => 'name', 'searchable' => 'true', 'orderable' => 'true'],
+                ['data' => 'phone', 'name' => 'phone', 'searchable' => 'true', 'orderable' => 'true'],
+                ['data' => 'email', 'name' => 'email', 'searchable' => 'false', 'orderable' => 'true'],
+                ['data' => 'sales_count', 'name' => 'sales_count', 'searchable' => 'false', 'orderable' => 'true'],
+                ['data' => 'actions', 'name' => 'actions', 'searchable' => 'false', 'orderable' => 'false'],
+            ],
+        ];
     }
 }

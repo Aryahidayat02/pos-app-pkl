@@ -18,12 +18,17 @@ class SaleItem extends Model
         'purchase_price',
         'quantity',
         'subtotal',
+        'discount_type',
+        'discount_value',
+        'discount',
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
         'purchase_price' => 'decimal:2',
         'subtotal' => 'decimal:2',
+        'discount_value' => 'decimal:2',
+        'discount' => 'decimal:2',
     ];
 
     public function sale(): BelongsTo

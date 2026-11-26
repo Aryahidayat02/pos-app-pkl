@@ -15,17 +15,11 @@
     </div>
 
     <div class="card-body">
-        <form method="GET" action="{{ route('customers.index') }}" class="input-group mb-3" style="max-width: 360px;">
-            <input type="search" name="search" class="form-control" value="{{ request('search') }}" placeholder="Cari nama atau telepon...">
-            <button type="submit" class="btn btn-outline-secondary" aria-label="Cari pelanggan"><i class="bi bi-search"></i></button>
-            @if(request('search'))
-                <a href="{{ route('customers.index') }}" class="btn btn-outline-secondary">Reset</a>
-            @endif
-        </form>
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+            <table id="customers-table" class="table table-hover align-middle w-100">
                 <thead class="table-light">
                     <tr>
+                        <th>#</th>
                         <th>Nama</th>
                         <th>No. HP</th>
                         <th>Email</th>
@@ -33,79 +27,47 @@
                         <th class="text-end">Aksi</th>
                     </tr>
                 </thead>
-                <tbody>
-                    @forelse($customers as $customer)
-                        <tr>
-                            <td class="fw-bold">{{ $customer->name }}</td>
-                            <td>{{ $customer->phone ?? '-' }}</td>
-                            <td>{{ $customer->email ?? '-' }}</td>
-                            <td><span class="badge bg-primary bg-opacity-10 text-primary">{{ $customer->sales_count }}x</span></td>
-                            <td class="text-end">
-                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalEdit{{ $customer->id }}">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                @if(auth()->user()->role === 'admin')
-                                    <form action="{{ route('customers.destroy', $customer->id) }}" method="POST" class="d-inline" data-delete-name="{{ $customer->name }}">
-                                        @csrf @method('DELETE')
-                                        <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
-                                    </form>
-                                @endif
-                            </td>
-                        </tr>
-
-                        <!-- MODAL EDIT PELANGGAN -->
-                        <div class="modal fade" id="modalEdit{{ $customer->id }}" tabindex="-1">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <form action="{{ route('customers.update', $customer->id) }}" method="POST">
-                                        @csrf @method('PUT')
-                                        <div class="modal-header">
-                                            <h5 class="modal-title">Edit Pelanggan: {{ $customer->name }}</h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                        </div>
-                                        <div class="modal-body">
-                                            <div class="mb-2">
-                                                <label class="form-label">Nama</label>
-                                                <input type="text" name="name" class="form-control" value="{{ $customer->name }}" required>
-                                            </div>
-                                            <div class="mb-2">
-                                                <label class="form-label">No. HP <span class="text-danger">*</span></label>
-                                                <input type="tel" name="phone" class="form-control" value="{{ $customer->phone }}" placeholder="0812345678901" inputmode="numeric" pattern="[0-9]{1,13}" maxlength="13" required oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 13)">
-                                            </div>
-                                            <div class="mb-2">
-                                                <label class="form-label">Email</label>
-                                                <input type="email" name="email" class="form-control" value="{{ $customer->email }}">
-                                            </div>
-                                            <div class="mb-2">
-                                                <label class="form-label">Alamat</label>
-                                                <textarea name="address" class="form-control" rows="2">{{ $customer->address }}</textarea>
-                                            </div>
-                                        </div>
-                                        <div class="modal-footer">
-                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                                            <button type="submit" class="btn btn-primary">Simpan</button>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                    @empty
-                        <tr><td colspan="5" class="text-center py-4 text-muted">Belum ada data pelanggan.</td></tr>
-                    @endforelse
-                </tbody>
+                <tbody></tbody>
             </table>
         </div>
     </div>
 </div>
-<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3">
-    <small class="text-muted">
-        @if($customers->total() > 0)
-            Menampilkan {{ $customers->firstItem() }} sampai {{ $customers->lastItem() }} dari {{ $customers->total() }} pelanggan
-        @else
-            Tidak ada pelanggan
-        @endif
-    </small>
-    {{ $customers->links() }}
+
+<div class="modal fade" id="editCustomerModal" tabindex="-1" aria-labelledby="editCustomerModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="editCustomerForm" action="{{ route('customers.index') }}" method="POST">
+                @csrf
+                @method('PUT')
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editCustomerModalTitle">Edit Pelanggan</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editCustomerName" class="form-label">Nama</label>
+                        <input type="text" name="name" id="editCustomerName" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editCustomerPhone" class="form-label">No. HP <span class="text-danger">*</span></label>
+                        <input type="tel" name="phone" id="editCustomerPhone" class="form-control" placeholder="0812345678901" inputmode="numeric" pattern="[0-9]{1,13}" maxlength="13" required oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 13)">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editCustomerEmail" class="form-label">Email</label>
+                        <input type="email" name="email" id="editCustomerEmail" class="form-control">
+                    </div>
+                    <div>
+                        <label for="editCustomerAddress" class="form-label">Alamat</label>
+                        <textarea name="address" id="editCustomerAddress" class="form-control" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle me-1"></i>Batal</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-arrow-repeat me-1"></i>Update</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <!-- MODAL TAMBAH PELANGGAN -->
@@ -137,11 +99,59 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-primary">Simpan</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle me-1"></i>Batal</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Simpan</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    $(function() {
+        $('#customers-table').DataTable({
+            processing: true,
+            serverSide: true,
+            ajax: @json(route('customers.index')),
+            pageLength: 10,
+            lengthMenu: [[10, 25, 50], [10, 25, 50]],
+            order: [[1, 'asc']],
+            columns: [
+                { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
+                { data: 'name', name: 'name' },
+                { data: 'phone', name: 'phone' },
+                { data: 'email', name: 'email', searchable: false },
+                { data: 'sales_count', name: 'sales_count', searchable: false },
+                { data: 'actions', name: 'actions', orderable: false, searchable: false }
+            ],
+            language: {
+                processing: 'Memuat data...',
+                search: 'Cari:',
+                lengthMenu: 'Tampilkan _MENU_ data',
+                info: 'Menampilkan _START_ sampai _END_ dari _TOTAL_ pelanggan',
+                infoEmpty: 'Tidak ada pelanggan',
+                infoFiltered: '(disaring dari _MAX_ pelanggan)',
+                zeroRecords: 'Pelanggan tidak ditemukan',
+                emptyTable: 'Belum ada data pelanggan',
+                paginate: { first: 'Awal', previous: 'Sebelumnya', next: 'Berikutnya', last: 'Akhir' }
+            }
+        });
+
+        const editCustomerModal = document.getElementById('editCustomerModal');
+        editCustomerModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            if (!(button instanceof HTMLElement)) {
+                return;
+            }
+
+            document.getElementById('editCustomerForm').action = button.dataset.updateUrl;
+            document.getElementById('editCustomerName').value = button.dataset.name ?? '';
+            document.getElementById('editCustomerPhone').value = button.dataset.phone ?? '';
+            document.getElementById('editCustomerEmail').value = button.dataset.email ?? '';
+            document.getElementById('editCustomerAddress').value = button.dataset.address ?? '';
+        });
+    });
+</script>
+@endpush

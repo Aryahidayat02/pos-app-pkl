@@ -61,6 +61,7 @@ Route::middleware('auth')->group(function () {
 
     // FITUR BONUS: LOG AKTIVITAS (B3)
     Route::get('/logs', [ActivityLogController::class, 'index'])->name('logs.index');
+    Route::get('/logs/{activityLog}', [ActivityLogController::class, 'show'])->name('logs.show');
 
     // PROFILE
     Route::get('/profile', [ProfileController::class, 'index'])->name('profile.index');
